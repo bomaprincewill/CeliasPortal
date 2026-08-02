@@ -1,0 +1,14 @@
+{
+  "name": "school-portal-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix school-portal run dev",
+    "build": "npm --prefix school-portal run build",
+    "start": "npm --prefix school-portal run start",
+    "db:generate": "npm --prefix school-portal run db:generate",
+    "db:migrate": "npm --prefix school-portal run db:migrate",
+    "db:deploy": "npm --prefix school-portal run db:deploy",
+    "db:status": "npm --prefix school-portal run db:status",
+    "db:seed": "npm --prefix school-portal run db:seed"
+  }
+}

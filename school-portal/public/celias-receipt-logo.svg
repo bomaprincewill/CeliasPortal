@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 150" role="img" aria-label="Celias International School">
+  <rect width="520" height="150" rx="18" fill="#fff"/>
+  <circle cx="72" cy="75" r="55" fill="#047857"/>
+  <path d="M42 49h60v12H42zm7 20h46v38H49z" fill="#fff"/>
+  <path d="M58 77h28v8H58zm0 15h28v8H58z" fill="#fbbf24"/>
+  <text x="145" y="70" font-family="Arial,sans-serif" font-size="42" font-weight="700" fill="#065f46">CELIAS</text>
+  <text x="145" y="105" font-family="Arial,sans-serif" font-size="21" font-weight="600" fill="#334155">INTERNATIONAL SCHOOL</text>
+</svg>

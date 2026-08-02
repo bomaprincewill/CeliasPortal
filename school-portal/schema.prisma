@@ -1,0 +1,756 @@
+// ============================================================
+// schema.prisma — School Portal System
+// Prisma ORM + PostgreSQL
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  BURSAR_ACCOUNTANT
+  SECRETARY
+  NURSERY_HEAD
+  PRIMARY_HEAD
+  PRINCIPAL
+  FORM_TEACHER
+  SUBJECT_TEACHER
+  PARENT
+  APPLICANT
+  STUDENT // internal, not a login role by default
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum Term {
+  FIRST
+  SECOND
+  THIRD
+}
+
+enum ResultStatus {
+  DRAFT // Subject teacher is entering scores
+  SUBMITTED // Submitted to form teacher for review
+  APPROVED // Form teacher approved
+  LOCKED // Super admin locked — no further edits
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum ExamType {
+  TERMINAL // In-house exam linked to enrolled students
+  ENTRANCE // External CBT for prospective applicants
+  MOCK
+  CA
+}
+
+enum QuestionType {
+  MCQ
+  TRUE_FALSE
+  SHORT_ANSWER
+  ESSAY
+}
+
+enum CBTGradingStatus {
+  AUTO_GRADED
+  PENDING_MANUAL
+  FINALIZED
+}
+
+enum AdmissionStatus {
+  PENDING
+  OFFERED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum StudentStatus {
+  ACTIVE
+  TRANSFERRED
+  WITHDRAWN
+  GRADUATED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  PROMOTED
+  TRANSFERRED
+  WITHDRAWN
+  GRADUATED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  SUBMIT
+  APPROVE
+  LOCK
+  UNLOCK
+  UPLOAD
+}
+
+// ─── User (Auth) ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  name          String
+  phone         String?
+  avatarUrl     String?
+  role          Role
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Role-specific profile (one will be set based on role)
+  teacher   Teacher?
+  parent    Parent?
+  applicant Applicant?
+  student   Student?
+
+  // Auth sessions (NextAuth compatible)
+  accounts Account[]
+  sessions Session[]
+
+  // Audit records initiated by this user
+  auditLogs AuditLog[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// NextAuth required models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  userAgent    String?
+  ipAddress    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model AuthThrottle {
+  identifier    String    @id
+  failures      Int       @default(0)
+  lockedUntil   DateTime?
+  lastAttemptAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+
+  @@index([lockedUntil])
+  @@map("auth_throttles")
+}
+
+// ─── School Structure ─────────────────────────────────────────
+
+model AcademicSession {
+  id        String   @id @default(cuid())
+  name      String // e.g. "2024/2025"
+  isCurrent Boolean  @default(false)
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+
+  classes      Class[]
+  exams        Exam[]
+  results      Result[]
+  attendance   Attendance[]
+  enrollments  StudentEnrollment[]
+
+  @@map("academic_sessions")
+}
+
+model SchoolSetting {
+  id        String   @id @default("default")
+  name      String
+  address   String
+  motto     String?
+  phone     String?
+  email     String?
+  website   String?
+  maxCA1    Float    @default(10)
+  maxCA2    Float    @default(10)
+  maxCA3    Float    @default(10)
+  maxExam   Float    @default(70)
+  updatedAt DateTime @updatedAt
+
+  gradeBands GradeBand[]
+
+  @@map("school_settings")
+}
+
+model GradeBand {
+  id        String @id @default(cuid())
+  settingId String
+  grade     String
+  minScore  Float
+  maxScore  Float
+  remark    String
+  sortOrder Int
+
+  setting SchoolSetting @relation(fields: [settingId], references: [id], onDelete: Cascade)
+
+  @@unique([settingId, grade])
+  @@index([settingId, sortOrder])
+  @@map("grade_bands")
+}
+
+model Class {
+  id        String   @id @default(cuid())
+  name      String // e.g. "JSS 1", "Primary 4"
+  arm       String // e.g. "A", "B", "Gold"
+  level     String // e.g. "primary", "secondary"
+  sessionId String
+  capacity  Int      @default(40)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session            AcademicSession     @relation(fields: [sessionId], references: [id])
+  formTeacher        Teacher?            @relation("FormTeacherClass")
+  students           Student[]
+  subjectAssignments SubjectAssignment[]
+  exams              Exam[]
+  results            Result[]
+  attendance         Attendance[]
+  broadSheets        BroadSheet[]
+  enrollments        StudentEnrollment[]
+
+  @@unique([name, arm, sessionId])
+  @@index([sessionId])
+  @@map("classes")
+}
+
+model Subject {
+  id          String   @id @default(cuid())
+  name        String // e.g. "Mathematics"
+  code        String // e.g. "MTH"
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  assignments SubjectAssignment[]
+  results     Result[]
+  questions   Question[]
+
+  @@unique([code])
+  @@map("subjects")
+}
+
+// Many-to-many: Teacher teaches Subject in Class
+model SubjectAssignment {
+  id        String   @id @default(cuid())
+  teacherId String
+  subjectId String
+  classId   String
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, subjectId, classId])
+  @@index([teacherId])
+  @@index([classId])
+  @@map("subject_assignments")
+}
+
+// ─── People ───────────────────────────────────────────────────
+
+model Teacher {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  employeeId     String   @unique
+  qualification  String?
+  specialization String?
+  joinDate       DateTime @default(now())
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  formTeacherOfClass Class?              @relation("FormTeacherClass", fields: [formClassId], references: [id])
+  formClassId        String?             @unique
+  assignments        SubjectAssignment[]
+  comments           ResultComment[]
+
+  @@index([userId])
+  @@map("teachers")
+}
+
+model Student {
+  id            String        @id @default(cuid())
+  userId        String?       @unique
+  studentId     String        @unique // e.g. "STU/2024/001"
+  firstName     String
+  lastName      String
+  middleName    String?
+  dateOfBirth   DateTime
+  gender        Gender
+  address       String?
+  bloodGroup    String?
+  stateOfOrigin String?
+  lgaOfOrigin   String?
+  religion      String?
+  photoUrl      String?
+  classId       String?
+  admissionDate DateTime      @default(now())
+  isActive      Boolean       @default(true)
+  status        StudentStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  class          Class?              @relation(fields: [classId], references: [id])
+  user           User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  parents        ParentStudent[]
+  results        Result[]
+  attendance     Attendance[]
+  cbtSubmissions CBTSubmission[]
+  enrollments    StudentEnrollment[]
+
+  @@index([classId])
+  @@index([userId])
+  @@index([studentId])
+  @@map("students")
+}
+
+model StudentEnrollment {
+  id             String           @id @default(cuid())
+  studentId      String
+  classId        String
+  sessionId      String
+  status         EnrollmentStatus @default(ACTIVE)
+  enrolledAt     DateTime         @default(now())
+  endedAt        DateTime?
+  reason         String?
+  promotedFromId String?
+  createdById    String?
+
+  student Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class           @relation(fields: [classId], references: [id])
+  session AcademicSession @relation(fields: [sessionId], references: [id])
+
+  @@unique([studentId, sessionId])
+  @@index([classId, sessionId, status])
+  @@index([studentId, enrolledAt])
+  @@map("student_enrollments")
+}
+
+model ReceiptRecord {
+  id              Int      @id @default(autoincrement())
+  receiptNumber   String   @unique @map("receipt_number")
+  date            DateTime @db.Date
+  studentName     String   @map("student_name")
+  grade           String
+  term            String
+  admissionNumber String   @map("admission_number")
+  parentName      String   @map("parent_name")
+  paymentMethod   String?  @map("payment_method")
+  chequeNumber    String?  @map("cheque_number")
+  totalAmount     Decimal  @db.Decimal(12, 2) @map("total_amount")
+  balanceTotal    Decimal  @db.Decimal(12, 2) @map("balance_total")
+  feeItems        Json     @map("fee_items")
+  balancePayments Json     @map("balance_payments")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([studentName])
+  @@index([grade, createdAt])
+  @@map("receipt_records")
+}
+
+model Parent {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  occupation   String?
+  relationship String  @default("PARENT") // PARENT, GUARDIAN, SPONSOR
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  children ParentStudent[]
+
+  @@map("parents")
+}
+
+// Explicit many-to-many: parent can have multiple children, child can have multiple parents/guardians
+model ParentStudent {
+  id           String   @id @default(cuid())
+  parentId     String
+  studentId    String
+  isPrimary    Boolean  @default(false) // primary contact
+  relationship String   @default("PARENT")
+  createdAt    DateTime @default(now())
+
+  parent  Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+  @@index([studentId])
+  @@map("parent_students")
+}
+
+model Applicant {
+  id               String          @id @default(cuid())
+  userId           String          @unique
+  applicationNo    String          @unique
+  applyingForClass String // e.g. "JSS 1"
+  academicSession  String // e.g. "2025/2026"
+  firstName        String
+  lastName         String
+  middleName       String?
+  dateOfBirth      DateTime
+  gender           Gender
+  address          String?
+  photoUrl         String?
+  status           AdmissionStatus @default(PENDING)
+  admissionScore   Float? // final CBT score
+  offerDate        DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cbtSubmissions CBTSubmission[]
+
+  @@index([applicationNo])
+  @@map("applicants")
+}
+
+// ─── Attendance ───────────────────────────────────────────────
+
+model Attendance {
+  id        String           @id @default(cuid())
+  studentId String
+  classId   String
+  sessionId String
+  date      DateTime         @db.Date
+  term      Term
+  status    AttendanceStatus @default(PRESENT)
+  note      String?
+  takenById String? // teacher who recorded
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  student Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class           @relation(fields: [classId], references: [id])
+  session AcademicSession @relation(fields: [sessionId], references: [id])
+
+  @@unique([studentId, date])
+  @@index([classId, date])
+  @@index([studentId, sessionId])
+  @@map("attendance")
+}
+
+// ─── CBT / Exams ─────────────────────────────────────────────
+
+model Exam {
+  id                    String   @id @default(cuid())
+  title                 String
+  description           String?
+  type                  ExamType
+  sessionId             String
+  classId               String? // null for entrance exams (open to applicants)
+  subjectId             String?
+  term                  Term?
+  durationMinutes       Int      @default(60)
+  scheduledStart        DateTime
+  scheduledEnd          DateTime
+  passMark              Int      @default(50)
+  totalMarks            Int      @default(100)
+  shuffleQuestions      Boolean  @default(true)
+  shuffleOptions        Boolean  @default(true)
+  showResultImmediately Boolean  @default(false)
+  maxAttempts           Int      @default(1)
+  instructions          String?  @db.Text
+  isPublished           Boolean  @default(false)
+  createdById           String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  session     AcademicSession @relation(fields: [sessionId], references: [id])
+  class       Class?          @relation(fields: [classId], references: [id])
+  questions   Question[]
+  submissions CBTSubmission[]
+
+  @@index([sessionId, type])
+  @@index([classId])
+  @@map("exams")
+}
+
+model Question {
+  id            String       @id @default(cuid())
+  examId        String
+  subjectId     String?
+  type          QuestionType
+  text          String       @db.Text
+  imageUrl      String?
+  marks         Int          @default(1)
+  order         Int          @default(0)
+  options       Json? // [{id, text}] for MCQ
+  correctAnswer String? // option id for MCQ, "true"/"false" for TF
+  sampleAnswer  String?      @db.Text // for short answer
+  explanation   String?      @db.Text
+  keywords      String[] // for short-answer auto-grading hints
+  createdAt     DateTime     @default(now())
+
+  exam          Exam        @relation(fields: [examId], references: [id], onDelete: Cascade)
+  subject       Subject?    @relation(fields: [subjectId], references: [id])
+  answerEntries CBTAnswer[]
+
+  @@index([examId])
+  @@map("questions")
+}
+
+model CBTSubmission {
+  id              String           @id @default(cuid())
+  examId          String
+  studentId       String? // null for applicants
+  applicantId     String? // null for enrolled students
+  startedAt       DateTime         @default(now())
+  submittedAt     DateTime?
+  timeUsedSeconds Int?
+  rawScore        Float?
+  totalMarks      Float?
+  percentage      Float?
+  isPassed        Boolean?
+  ipAddress       String?
+  userAgent       String?
+  isAutoSubmitted Boolean          @default(false)
+  attemptNumber   Int              @default(1)
+  gradingStatus   CBTGradingStatus @default(AUTO_GRADED)
+  finalizedAt     DateTime?
+  finalizedById   String?
+  createdAt       DateTime         @default(now())
+
+  exam      Exam        @relation(fields: [examId], references: [id])
+  student   Student?    @relation(fields: [studentId], references: [id])
+  applicant Applicant?  @relation(fields: [applicantId], references: [id])
+  answers   CBTAnswer[]
+
+  @@unique([examId, studentId, attemptNumber])
+  @@unique([examId, applicantId, attemptNumber])
+  @@index([examId])
+  @@map("cbt_submissions")
+}
+
+model CBTAnswer {
+  id           String    @id @default(cuid())
+  submissionId String
+  questionId   String
+  value        String?   @db.Text // selected option id, "true"/"false", or text
+  isCorrect    Boolean?
+  marksAwarded Float     @default(0)
+  answeredAt   DateTime  @default(now())
+  feedback     String?   @db.Text
+  gradedAt     DateTime?
+  gradedById   String?
+
+  submission CBTSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question   Question      @relation(fields: [questionId], references: [id])
+
+  @@unique([submissionId, questionId])
+  @@map("cbt_answers")
+}
+
+// ─── Results (Terminal/Academic) ──────────────────────────────
+
+model Result {
+  id        String @id @default(cuid())
+  studentId String
+  classId   String
+  subjectId String
+  sessionId String
+  term      Term
+
+  // Score components
+  ca1       Float? // Continuous Assessment 1 (max configurable)
+  ca2       Float? // Continuous Assessment 2
+  ca3       Float? // Continuous Assessment 3 (optional)
+  examScore Float? // Main exam score
+  total     Float? // Computed: CA1 + CA2 + CA3 + examScore
+
+  // Computed fields (written by the ranking engine)
+  grade      String? // A, B, C, D, E, F
+  gradePoint Float? // for GPA calculation
+  remark     String? // Excellent, Very Good, etc.
+  position   Int? // rank within class for this subject
+
+  // Validation
+  maxCA1   Float @default(10)
+  maxCA2   Float @default(10)
+  maxCA3   Float @default(10)
+  maxExam  Float @default(70)
+  maxTotal Float @default(100)
+
+  status      ResultStatus @default(DRAFT)
+  submittedAt DateTime?
+  approvedAt  DateTime?
+  lockedAt    DateTime?
+  lockedById  String?
+
+  teacherComment String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  student  Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class    Class           @relation(fields: [classId], references: [id])
+  subject  Subject         @relation(fields: [subjectId], references: [id])
+  session  AcademicSession @relation(fields: [sessionId], references: [id])
+  comments ResultComment[]
+
+  @@unique([studentId, subjectId, sessionId, term])
+  @@index([classId, sessionId, term])
+  @@index([studentId, sessionId])
+  @@map("results")
+}
+
+model ResultComment {
+  id        String   @id @default(cuid())
+  resultId  String? // nullable — can be class-level comment
+  studentId String?
+  classId   String?
+  sessionId String?
+  term      Term?
+  teacherId String
+  type      String   @default("GENERAL") // GENERAL, PRINCIPAL, FORM_TEACHER
+  comment   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  result  Result? @relation(fields: [resultId], references: [id])
+  teacher Teacher @relation(fields: [teacherId], references: [id])
+
+  @@map("result_comments")
+}
+
+// Materialized broad-sheet: pre-computed per class per term
+model BroadSheet {
+  id           String   @id @default(cuid())
+  classId      String
+  sessionId    String
+  term         Term
+  studentId    String
+  totalScore   Float    @default(0)
+  averageScore Float    @default(0)
+  subjectCount Int      @default(0)
+  position     Int? // class position
+  outOf        Int? // number of students ranked
+  isLocked     Boolean  @default(false)
+  computedAt   DateTime @default(now())
+  computedById String?
+
+  class Class @relation(fields: [classId], references: [id])
+
+  @@unique([classId, sessionId, term, studentId])
+  @@index([classId, sessionId, term])
+  @@map("broad_sheets")
+}
+
+// ─── Audit Log ────────────────────────────────────────────────
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  userId      String? // null for system actions
+  action      AuditAction
+  entity      String // e.g. "Result", "Attendance"
+  entityId    String? // the affected record id
+  description String      @db.Text
+  oldValue    Json? // snapshot before change
+  newValue    Json? // snapshot after change
+  ipAddress   String?
+  userAgent   String?
+  sessionId   String?
+  metadata    Json? // extra context
+  createdAt   DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─── Notifications ────────────────────────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  body      String    @db.Text
+  type      String    @default("INFO") // INFO, WARNING, SUCCESS, ALERT
+  link      String?
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
