@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, Loader2, Plus, Trash2, UserCheck } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, MessageCircle, Plus, Trash2, UserCheck, X } from "lucide-react";
 import { generateApplicantAccount } from "@/actions/users/createPortalUser";
 import { deleteApplicant } from "@/actions/applicants/deleteApplicant";
 import { ConfirmModal, Toast } from "@/components/ui";
@@ -32,6 +32,7 @@ export default function ApplicantAccountsClient({
   const [removeTarget, setRemoveTarget] = useState<any>(null);
   const [pending, startTransition] = useTransition();
   const [enrollmentClass, setEnrollmentClass] = useState<Record<string, string>>({});
+  const [setup, setSetup] = useState<{ url: string; name: string; applicationNo: string } | null>(null);
 
   const createAccount = () => {
     setError("");
@@ -59,8 +60,19 @@ export default function ApplicantAccountsClient({
         return;
       }
       setApplicants(current => current.map(item => item.id === applicant.id ? { ...item, isActive: true } : item));
-      setToast({ type: "success", message: `${applicant.name} was approved and the login credentials were emailed.` });
+      setSetup(result.setup ?? null);
+      setToast({ type: "success", message: `${applicant.name} was approved. Share the one-time setup link.` });
     });
+  };
+
+  const setupMessage = setup
+    ? `Hello ${setup.name}, your Celias Schools applicant account is ready. Application number: ${setup.applicationNo}. Create your password using this secure one-time link (valid for 24 hours): ${setup.url}`
+    : "";
+
+  const copySetupLink = async () => {
+    if (!setup) return;
+    await navigator.clipboard.writeText(setupMessage);
+    setToast({ type: "success", message: "Setup message copied. You can paste it into WhatsApp or SMS." });
   };
 
   const removeApplicant = () => {
@@ -95,7 +107,7 @@ export default function ApplicantAccountsClient({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="page-title">Applicant Accounts</h1>
-          <p className="page-subtitle">Create applicants, then approve when their login credentials should be sent.</p>
+          <p className="page-subtitle">Create applicants, approve them, then share a secure one-time setup link.</p>
         </div>
         <button onClick={() => setShowForm(true)} className="btn-primary"><Plus className="h-4 w-4" />Create Applicant</button>
       </div>
@@ -115,7 +127,7 @@ export default function ApplicantAccountsClient({
                 <td className="text-right">
                   {!applicant.isActive && (
                     <button disabled={pending} onClick={() => approveAndSend(applicant)} className="btn-ghost btn-sm text-emerald-700 gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5" />Approve &amp; Send
+                      <CheckCircle2 className="h-3.5 w-3.5" />Approve &amp; Get Link
                     </button>
                   )}
                   {applicant.isActive && <div className="inline-flex items-center gap-1">
@@ -192,6 +204,29 @@ export default function ApplicantAccountsClient({
           onConfirm={removeApplicant}
           onCancel={() => !pending && setRemoveTarget(null)}
         />
+      )}
+
+      {setup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-display text-xl font-bold">Share setup link</h2>
+                <p className="mt-1 text-sm text-muted">This link works once and expires after 24 hours.</p>
+              </div>
+              <button onClick={() => setSetup(null)} className="btn-ghost p-2" aria-label="Close"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="mt-5 rounded-xl bg-surface p-4 text-sm break-words">
+              <p className="font-medium">{setup.name}</p>
+              <p className="mt-1 text-muted">{setup.applicationNo}</p>
+              <p className="mt-3 font-mono text-xs">{setup.url}</p>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button onClick={copySetupLink} className="btn-secondary justify-center"><Copy className="h-4 w-4" />Copy message</button>
+              <a href={`https://wa.me/?text=${encodeURIComponent(setupMessage)}`} target="_blank" rel="noreferrer" className="btn-primary justify-center"><MessageCircle className="h-4 w-4" />Send via WhatsApp</a>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

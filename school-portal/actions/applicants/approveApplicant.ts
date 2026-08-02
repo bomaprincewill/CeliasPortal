@@ -1,11 +1,9 @@
 "use server";
 
-import bcrypt from "bcryptjs";
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
-import { sendApplicantCredentialsEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 
 export async function approveApplicant(userId: string) {
@@ -19,22 +17,23 @@ export async function approveApplicant(userId: string) {
   if (!applicantUser?.applicant) return { success: false, error: "Applicant not found." };
   if (applicantUser.isActive) return { success: false, error: "This applicant account has already been approved." };
 
-  const password = `App!${randomBytes(9).toString("base64url")}`;
-  await prisma.user.update({ where: { id: applicantUser.id }, data: { passwordHash: await bcrypt.hash(password, 12) } });
-
-  const delivery = await sendApplicantCredentialsEmail({
-    to: applicantUser.email, name: applicantUser.name, password,
-    applicationNo: applicantUser.applicant.applicationNo,
-    applyingForClass: applicantUser.applicant.applyingForClass,
-  });
-  if (!delivery.sent) return { success: false, error: delivery.error ?? "Credentials could not be emailed. The applicant remains pending approval." };
-
-  await prisma.user.update({ where: { id: applicantUser.id }, data: { isActive: true } });
+  const token = randomBytes(32).toString("base64url");
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  await prisma.$transaction([
+    prisma.passwordResetToken.updateMany({ where: { userId: applicantUser.id, usedAt: null }, data: { usedAt: new Date() } }),
+    prisma.passwordResetToken.create({ data: { userId: applicantUser.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60_000) } }),
+    prisma.user.update({ where: { id: applicantUser.id }, data: { isActive: true } }),
+  ]);
+  const baseUrl = (process.env.NEXTAUTH_URL || "http://localhost:3000").replace(/\/$/, "");
+  const setupUrl = `${baseUrl}/auth/reset-password/${encodeURIComponent(token)}`;
   await writeAuditLog({
     userId: session.user.id, action: "APPROVE", entity: "Applicant", entityId: applicantUser.applicant.id,
-    description: `Applicant account approved and credentials sent to ${applicantUser.email}`,
-    newValue: { applicationNo: applicantUser.applicant.applicationNo, credentialsSent: true },
+    description: `Applicant account approved and a one-time setup link generated`,
+    newValue: { applicationNo: applicantUser.applicant.applicationNo, setupLinkGenerated: true },
   });
   revalidatePath("/admin/applicants");
-  return { success: true };
+  return {
+    success: true,
+    setup: { url: setupUrl, name: applicantUser.name, applicationNo: applicantUser.applicant.applicationNo },
+  };
 }
