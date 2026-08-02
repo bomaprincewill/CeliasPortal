@@ -3,6 +3,7 @@ import { Suspense, useState } from "react";
 import { getSession, signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen, Eye, EyeOff, Loader2 } from "lucide-react";
+import Link from "next/link";
 
 function SignInForm() {
   const router      = useRouter();
@@ -94,8 +95,8 @@ function SignInForm() {
               <label className="label">Email address</label>
               <input type="email" value={email} onChange={e=>setEmail(e.target.value)} className="input" placeholder="you@school.edu" required/>
             </div>
-            <div className="form-group">
-              <label className="label">Password</label>
+              <div className="form-group">
+                <div className="flex items-center justify-between"><label className="label">Password</label><Link href="/auth/reset-password" className="text-xs font-medium text-brand-700 hover:text-brand-900">Forgot password?</Link></div>
               <div className="relative">
                 <input type={showPw?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)}
                   className="input pr-10" placeholder="••••••••" required/>

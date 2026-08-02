@@ -6,7 +6,7 @@ import {
   BookOpen, LayoutDashboard, HelpCircle, ClipboardList,
   Users, Settings, LogOut, GraduationCap, BookMarked,
   BarChart2, School, Calendar, FileText, Bell, Shield,
-  UserCheck, Home, ChevronDown, ChevronRight, X, AlertTriangle,
+  UserCheck, Home, ChevronDown, ChevronRight, X, AlertTriangle, LockKeyhole,
 } from "lucide-react";
 import { cn } from "@/components/ui";
 import { useEffect, useState } from "react";
@@ -208,6 +208,9 @@ export default function Sidebar({ open = false, onClose }: { open?: boolean; onC
 
       {/* User */}
       <div className="px-3 py-4 border-t border-white/10 space-y-1">
+        <Link href="/account/security" onClick={onClose} className={cn(pathname === "/account/security" ? "nav-item-active" : "nav-item-inactive")}>
+          <LockKeyhole className="w-4 h-4 flex-shrink-0"/>Change password
+        </Link>
         <Link href="/notifications" onClick={onClose} className="nav-item-inactive">
           <Bell className="w-4 h-4 flex-shrink-0"/>Notifications
         </Link>

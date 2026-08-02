@@ -25,6 +25,7 @@ export default async function UsersPage() {
       where: { entity: "User", action: "UPDATE", OR: [
         { description: { startsWith: "Password reset completed" } },
         { description: { startsWith: "Password changed for" } },
+        { description: { startsWith: "Password changed by account owner" } },
       ] },
       orderBy: { createdAt: "desc" },
       select: { entityId: true, createdAt: true },
