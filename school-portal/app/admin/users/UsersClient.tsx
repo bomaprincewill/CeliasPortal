@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { Plus, Search, Trash2, Edit2, ChevronDown, Loader2, Upload, FileText } from "lucide-react";
+import { Plus, Search, Trash2, Edit2, ChevronDown, Loader2, Upload, FileText, Eye, EyeOff } from "lucide-react";
 import { SectionCard, ConfirmModal, Toast, EmptyState } from "@/components/ui";
 import { ROLE_LABELS } from "@/types";
 import { createPortalUser } from "@/actions/users/createPortalUser";
@@ -25,6 +25,7 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
   const [editUser, setEdit]     = useState<any>(null);
   const [deleteUser, setDelete] = useState<any>(null);
   const [toast, setToast]       = useState<any>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [isPending, start]      = useTransition();
 
   // Form state
@@ -127,7 +128,7 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
           <button onClick={()=>{setUploadErrors([]);setUpload(true)}} className="btn-secondary btn-sm flex-1 justify-center gap-2 sm:flex-none">
             <Upload className="w-3.5 h-3.5"/>Bulk Word Upload
           </button>
-          <button onClick={()=>{setEdit(null);setForm2(emptyForm);setForm(true)}} className="btn-primary btn-sm flex-1 justify-center gap-2 sm:flex-none">
+          <button onClick={()=>{setEdit(null);setForm2(emptyForm);setShowPassword(false);setForm(true)}} className="btn-primary btn-sm flex-1 justify-center gap-2 sm:flex-none">
             <Plus className="w-3.5 h-3.5"/>Add User
           </button>
         </div>
@@ -176,7 +177,7 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
                 <td className="text-muted text-xs">{new Date(u.createdAt).toLocaleDateString("en-NG")}</td>
                 <td>
                   <div className="flex items-center justify-end gap-1">
-                    <button onClick={()=>{setEdit(u);setForm2({...emptyForm,name:u.name,email:u.email,role:u.role,password:""});setForm(true)}} className="btn-ghost btn-sm btn-icon">
+                    <button onClick={()=>{setEdit(u);setForm2({...emptyForm,name:u.name,email:u.email,role:u.role,password:""});setShowPassword(false);setForm(true)}} className="btn-ghost btn-sm btn-icon">
                       <Edit2 className="w-3.5 h-3.5"/>
                     </button>
                     <button onClick={()=>setDelete(u)} className="btn-ghost btn-sm btn-icon hover:text-danger">
@@ -218,7 +219,24 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
               </div>
               <div className="form-group sm:col-span-2">
                 <label className="label">{editUser ? "New Password (leave blank to keep current)" : "Initial Password"}</label>
-                <input type={editUser ? "password" : "text"} value={form.password} onChange={e=>setForm2(f=>({...f,password:e.target.value}))} className="input font-mono" placeholder={editUser ? "Minimum 8 characters" : undefined}/>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={form.password}
+                    onChange={e=>setForm2(f=>({...f,password:e.target.value}))}
+                    className="input pr-11 font-mono"
+                    placeholder={editUser ? "Minimum 8 characters" : undefined}
+                  />
+                  <button
+                    type="button"
+                    onClick={()=>setShowPassword(visible=>!visible)}
+                    className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted transition-colors hover:text-ink"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
+                  </button>
+                </div>
               </div>
               {form.role === "PARENT" && (
                 <>
@@ -271,7 +289,7 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
             </div>
             <div className="flex gap-3 pt-2">
               <button onClick={handleSave} disabled={isPending} className="btn-primary flex-1 justify-center">{isPending ? <><Loader2 className="h-4 w-4 animate-spin"/>Saving…</> : "Save"}</button>
-              <button onClick={()=>{setForm(false);setEdit(null)}} className="btn-secondary flex-1 justify-center">Cancel</button>
+              <button onClick={()=>{setForm(false);setEdit(null);setShowPassword(false)}} className="btn-secondary flex-1 justify-center">Cancel</button>
             </div>
           </div>
         </div>
