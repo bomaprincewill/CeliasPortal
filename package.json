@@ -1,6 +1,9 @@
 {
   "name": "school-portal-workspace",
   "private": true,
+  "workspaces": [
+    "school-portal"
+  ],
   "scripts": {
     "dev": "npm --prefix school-portal run dev",
     "build": "npm --prefix school-portal run build",
