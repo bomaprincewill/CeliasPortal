@@ -66,7 +66,7 @@ export async function updateUserCredentials(input: UpdateUserCredentialsInput) {
     action: "UPDATE",
     entity: "User",
     entityId: updated.id,
-    description: `Credentials updated for ${updated.name}`,
+    description: password ? `Password changed for ${updated.name}` : `Profile updated for ${updated.name}`,
     oldValue: { name: existing.name, email: existing.email, role: existing.role },
     newValue: { name: updated.name, email: updated.email, role: updated.role, passwordReset: Boolean(password) },
   });
@@ -75,6 +75,10 @@ export async function updateUserCredentials(input: UpdateUserCredentialsInput) {
 
   return {
     success: true,
-    user: { ...updated, createdAt: updated.createdAt.toISOString() },
+    user: {
+      ...updated,
+      createdAt: updated.createdAt.toISOString(),
+      ...(password ? { passwordSet: true, passwordChangedAt: new Date().toISOString() } : {}),
+    },
   };
 }

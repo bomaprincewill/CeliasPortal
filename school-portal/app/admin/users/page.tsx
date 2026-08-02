@@ -8,7 +8,7 @@ export default async function UsersPage() {
   const session = await getSession();
   if (!session || !["SUPER_ADMIN", "ADMIN"].includes(session.user.role)) redirect("/auth/signin");
 
-  const [users, classes, subjects, academicSessions] = await Promise.all([
+  const [users, classes, subjects, academicSessions, passwordChanges] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -21,7 +21,25 @@ export default async function UsersPage() {
     prisma.class.findMany({ orderBy: [{ name:"asc" },{ arm:"asc" }] }),
     prisma.subject.findMany({ where:{ isActive:true }, orderBy:{ name:"asc" } }),
     prisma.academicSession.findMany({ orderBy:{ startDate:"desc" }, select:{ name:true, isCurrent:true } }),
+    prisma.auditLog.findMany({
+      where: { entity: "User", action: "UPDATE", OR: [
+        { description: { startsWith: "Password reset completed" } },
+        { description: { startsWith: "Password changed for" } },
+      ] },
+      orderBy: { createdAt: "desc" },
+      select: { entityId: true, createdAt: true },
+    }),
   ]);
 
-  return <UsersClient initialUsers={users as never} classes={sortClasses(classes)} subjects={subjects} academicSessions={academicSessions}/>;
+  const changedAtByUser = new Map<string, Date>();
+  for (const change of passwordChanges) {
+    if (change.entityId && !changedAtByUser.has(change.entityId)) changedAtByUser.set(change.entityId, change.createdAt);
+  }
+  const safeUsers = users.map(({ passwordHash, ...user }) => ({
+    ...user,
+    passwordSet: Boolean(passwordHash),
+    passwordChangedAt: changedAtByUser.get(user.id)?.toISOString() ?? null,
+  }));
+
+  return <UsersClient initialUsers={safeUsers as never} classes={sortClasses(classes)} subjects={subjects} academicSessions={academicSessions}/>;
 }

@@ -1,12 +1,13 @@
 "use client";
 import { useState, useTransition } from "react";
-import { Plus, Search, Trash2, Edit2, ChevronDown, Loader2, Upload, FileText, Eye, EyeOff } from "lucide-react";
+import { Plus, Search, Trash2, Edit2, ChevronDown, Loader2, Upload, FileText, Eye, EyeOff, KeyRound, Copy, MessageCircle, X } from "lucide-react";
 import { SectionCard, ConfirmModal, Toast, EmptyState } from "@/components/ui";
 import { ROLE_LABELS } from "@/types";
 import { createPortalUser } from "@/actions/users/createPortalUser";
 import { updateUserCredentials } from "@/actions/users/updateUserCredentials";
 import { bulkUploadUsers } from "@/actions/users/bulkUploadUsers";
 import { createFinanceStaff } from "@/actions/users/createFinanceStaff";
+import { generatePasswordSetupLink } from "@/actions/users/generatePasswordSetupLink";
 
 const ROLE_BADGE: Record<string, string> = {
   SUPER_ADMIN:"badge-blue", FORM_TEACHER:"badge-green",
@@ -26,6 +27,7 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
   const [deleteUser, setDelete] = useState<any>(null);
   const [toast, setToast]       = useState<any>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [setup, setSetup] = useState<{ name: string; email: string; url: string } | null>(null);
   const [isPending, start]      = useTransition();
 
   // Form state
@@ -115,6 +117,24 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
     });
   };
 
+  const createSetupLink = (user: any) => {
+    start(async () => {
+      const result = await generatePasswordSetupLink(user.id);
+      if (!result.success) return setToast({ type: "error", message: result.error });
+      setSetup(result.setup);
+    });
+  };
+
+  const setupMessage = setup
+    ? `Hello ${setup.name}, create a new password for your Celias Schools account (${setup.email}) using this secure one-time link. It expires in 24 hours: ${setup.url}`
+    : "";
+
+  const copySetupMessage = async () => {
+    if (!setup) return;
+    await navigator.clipboard.writeText(setupMessage);
+    setToast({ type: "success", message: "Setup message copied." });
+  };
+
   return (
     <div className="space-y-6">
       {toast && <Toast {...toast} onClose={()=>setToast(null)}/>}
@@ -154,12 +174,12 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
         <table className="data-table">
           <thead>
             <tr>
-              <th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th><th className="text-right">Actions</th>
+              <th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Password</th><th>Joined</th><th className="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {visible.length === 0 && (
-              <tr><td colSpan={6} className="py-12 text-center text-muted">No users found.</td></tr>
+              <tr><td colSpan={7} className="py-12 text-center text-muted">No users found.</td></tr>
             )}
             {visible.map(u => (
               <tr key={u.id}>
@@ -174,9 +194,16 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
                 <td className="text-muted">{u.email}</td>
                 <td><span className={ROLE_BADGE[u.role] ?? "badge-gray"}>{roleLabel(u)}</span></td>
                 <td><span className={u.isActive?"badge-green":"badge-red"}>{u.isActive?"Active":"Inactive"}</span></td>
+                <td>
+                  <span className={u.passwordSet ? "badge-green" : "badge-yellow"}>{u.passwordSet ? "Set" : "Not set"}</span>
+                  <div className="mt-1 text-xs text-muted">{u.passwordChangedAt ? `Changed ${new Date(u.passwordChangedAt).toLocaleDateString("en-NG")}` : "No recorded change"}</div>
+                </td>
                 <td className="text-muted text-xs">{new Date(u.createdAt).toLocaleDateString("en-NG")}</td>
                 <td>
                   <div className="flex items-center justify-end gap-1">
+                    <button disabled={isPending || !u.isActive} onClick={()=>createSetupLink(u)} className="btn-ghost btn-sm btn-icon" title="Generate password setup link" aria-label={`Generate password setup link for ${u.name}`}>
+                      <KeyRound className="w-3.5 h-3.5"/>
+                    </button>
                     <button onClick={()=>{setEdit(u);setForm2({...emptyForm,name:u.name,email:u.email,role:u.role,password:""});setShowPassword(false);setForm(true)}} className="btn-ghost btn-sm btn-icon">
                       <Edit2 className="w-3.5 h-3.5"/>
                     </button>
@@ -337,6 +364,25 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
           onConfirm={handleDelete}
           onCancel={()=>setDelete(null)}
         />
+      )}
+
+      {setup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div><h2 className="font-display text-xl font-bold">Share password setup link</h2><p className="mt-1 text-sm text-muted">Single use and valid for 24 hours.</p></div>
+              <button onClick={()=>setSetup(null)} className="btn-ghost p-2" aria-label="Close"><X className="h-4 w-4"/></button>
+            </div>
+            <div className="mt-5 rounded-xl bg-surface p-4 text-sm">
+              <p className="font-medium">{setup.name}</p><p className="text-muted">{setup.email}</p>
+              <a href={setup.url} target="_blank" rel="noreferrer" className="mt-3 block break-all font-mono text-xs text-brand-700 underline">{setup.url}</a>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button onClick={copySetupMessage} className="btn-secondary justify-center"><Copy className="h-4 w-4"/>Copy message</button>
+              <a href={`https://wa.me/?text=${encodeURIComponent(setupMessage)}`} target="_blank" rel="noreferrer" className="btn-primary justify-center"><MessageCircle className="h-4 w-4"/>Send via WhatsApp</a>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
