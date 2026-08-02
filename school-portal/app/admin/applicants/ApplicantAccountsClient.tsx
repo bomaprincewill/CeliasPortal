@@ -219,7 +219,14 @@ export default function ApplicantAccountsClient({
             <div className="mt-5 rounded-xl bg-surface p-4 text-sm break-words">
               <p className="font-medium">{setup.name}</p>
               <p className="mt-1 text-muted">{setup.applicationNo}</p>
-              <p className="mt-3 font-mono text-xs">{setup.url}</p>
+              <a
+                href={setup.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 block font-mono text-xs text-brand-700 underline underline-offset-2 hover:text-brand-900"
+              >
+                {setup.url}
+              </a>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button onClick={copySetupLink} className="btn-secondary justify-center"><Copy className="h-4 w-4" />Copy message</button>
