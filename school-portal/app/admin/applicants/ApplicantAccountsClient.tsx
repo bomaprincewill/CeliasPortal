@@ -32,7 +32,7 @@ export default function ApplicantAccountsClient({
   const [removeTarget, setRemoveTarget] = useState<any>(null);
   const [pending, startTransition] = useTransition();
   const [enrollmentClass, setEnrollmentClass] = useState<Record<string, string>>({});
-  const [setup, setSetup] = useState<{ url: string; name: string; applicationNo: string } | null>(null);
+  const [setup, setSetup] = useState<{ url: string; name: string; email: string; applicationNo: string } | null>(null);
 
   const createAccount = () => {
     setError("");
@@ -66,7 +66,7 @@ export default function ApplicantAccountsClient({
   };
 
   const setupMessage = setup
-    ? `Hello ${setup.name}, your Celias Schools applicant account is ready. Application number: ${setup.applicationNo}. Create your password using this secure one-time link (valid for 24 hours): ${setup.url}`
+    ? `Hello ${setup.name}, your Celias Schools applicant account is ready.\n\nApplication number: ${setup.applicationNo}\nLogin email: ${setup.email}\n\nCreate your password using this secure one-time link (valid for 24 hours):\n${setup.url}\n\nAfter creating your password, sign in using this email address: ${setup.email}`
     : "";
 
   const copySetupLink = async () => {
@@ -219,6 +219,7 @@ export default function ApplicantAccountsClient({
             <div className="mt-5 rounded-xl bg-surface p-4 text-sm break-words">
               <p className="font-medium">{setup.name}</p>
               <p className="mt-1 text-muted">{setup.applicationNo}</p>
+              <p className="mt-1 text-muted">Login email: <span className="font-medium text-ink">{setup.email}</span></p>
               <a
                 href={setup.url}
                 target="_blank"

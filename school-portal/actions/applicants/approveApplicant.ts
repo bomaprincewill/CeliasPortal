@@ -34,6 +34,6 @@ export async function approveApplicant(userId: string) {
   revalidatePath("/admin/applicants");
   return {
     success: true,
-    setup: { url: setupUrl, name: applicantUser.name, applicationNo: applicantUser.applicant.applicationNo },
+    setup: { url: setupUrl, name: applicantUser.name, email: applicantUser.email, applicationNo: applicantUser.applicant.applicationNo },
   };
 }
