@@ -8,6 +8,8 @@
     "dev": "npm --prefix school-portal run dev",
     "build": "npm --prefix school-portal run build",
     "start": "npm --prefix school-portal run start",
+    "lint": "npm --prefix school-portal run lint",
+    "test": "npm --prefix school-portal run test",
     "db:generate": "npm --prefix school-portal run db:generate",
     "db:migrate": "npm --prefix school-portal run db:migrate",
     "db:deploy": "npm --prefix school-portal run db:deploy",

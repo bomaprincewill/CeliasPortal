@@ -93,7 +93,15 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
         setForm(false); setEdit(null); setForm2(emptyForm);
       });
     } else {
-      const newUser = { id: `u_${Date.now()}`, ...form, isActive:true, createdAt: new Date().toISOString() };
+      const selectedClass = classes.find(item => item.id === form.classId);
+      if (form.role === "STUDENT" && !selectedClass) {
+        setToast({ type:"error", message:"Select a class for the student or pupil." });
+        return;
+      }
+      const newUser = {
+        id: `u_${Date.now()}`, ...form, isActive:true, createdAt: new Date().toISOString(),
+        ...(form.role === "STUDENT" ? { student: { class: { id:selectedClass.id, name:selectedClass.name, arm:selectedClass.arm, level:selectedClass.level } } } : {}),
+      };
       setUsers(prev => [newUser, ...prev]);
       setToast({ type:"success", message:"User created." });
       setForm(false); setEdit(null); setForm2(emptyForm);
@@ -278,6 +286,16 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
                     <input value={form.occupation} onChange={e=>setForm2(f=>({...f,occupation:e.target.value}))} className="input"/>
                   </div>
                 </>
+              )}
+              {form.role === "STUDENT" && (
+                <div className="form-group sm:col-span-2">
+                  <label className="label">Class *</label>
+                  <select value={form.classId} onChange={e=>setForm2(f=>({...f,classId:e.target.value}))} className="input" required>
+                    <option value="">— select class —</option>
+                    {classes.map(c=><option key={c.id} value={c.id}>{c.name} {c.arm}{c.level ? ` · ${c.level}` : ""}</option>)}
+                  </select>
+                  <p className="mt-1 text-xs text-muted">The learner will be added to this class.</p>
+                </div>
               )}
               {form.role === "APPLICANT" && (
                 <>

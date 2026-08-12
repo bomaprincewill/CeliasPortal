@@ -51,7 +51,7 @@ export default function ReportCard({
         )}
         <h1 className="font-display text-2xl font-bold text-brand-950 uppercase tracking-wide">{school.name}</h1>
         <p className="text-sm text-muted mt-1">{school.address}</p>
-        {school.motto && <p className="text-xs italic text-muted mt-0.5">"{school.motto}"</p>}
+        {school.motto && <p className="text-xs italic text-muted mt-0.5">&quot;{school.motto}&quot;</p>}
         <div className="mt-3 inline-flex items-center gap-2 bg-brand-950 text-white px-4 py-1.5 rounded-full text-sm font-semibold">
           STUDENT REPORT CARD — {TERM_LABELS[term].toUpperCase()} · {session}
         </div>
@@ -169,7 +169,7 @@ export default function ReportCard({
       {/* Comments */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="border border-border rounded-xl p-3">
-          <p className="text-xs font-semibold text-muted mb-1">Form Teacher's Comment</p>
+          <p className="text-xs font-semibold text-muted mb-1">Form Teacher&apos;s Comment</p>
           <p className="text-xs text-ink italic min-h-[3rem]">{formTeacherComment ?? "—"}</p>
           <div className="mt-3 border-t border-border pt-2">
             <div className="h-6 border-b border-dashed border-slate-300"/>
@@ -177,7 +177,7 @@ export default function ReportCard({
           </div>
         </div>
         <div className="border border-border rounded-xl p-3">
-          <p className="text-xs font-semibold text-muted mb-1">Principal's Comment</p>
+          <p className="text-xs font-semibold text-muted mb-1">Principal&apos;s Comment</p>
           <p className="text-xs text-ink italic min-h-[3rem]">{principalComment ?? "Keep up the good work!"}</p>
           <div className="mt-3 border-t border-border pt-2">
             <div className="h-6 border-b border-dashed border-slate-300"/>

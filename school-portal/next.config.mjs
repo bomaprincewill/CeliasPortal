@@ -13,6 +13,7 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  turbopack: { root: process.cwd() },
   experimental: { serverActions: { allowedOrigins } },
   images: { remotePatterns: [] },
   serverExternalPackages: ["read-excel-file", "unzipper"],

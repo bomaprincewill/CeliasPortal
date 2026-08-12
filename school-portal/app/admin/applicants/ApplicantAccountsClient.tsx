@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, Copy, Loader2, MessageCircle, Plus, Trash2, UserCheck, X } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, Mail, MessageCircle, Plus, Trash2, UserCheck, X } from "lucide-react";
 import { generateApplicantAccount } from "@/actions/users/createPortalUser";
 import { deleteApplicant } from "@/actions/applicants/deleteApplicant";
 import { ConfirmModal, Toast } from "@/components/ui";
-import { approveApplicant } from "@/actions/applicants/approveApplicant";
+import { approveApplicant, sendApplicantCredentials } from "@/actions/applicants/approveApplicant";
 import { enrollApplicant } from "@/actions/students/manageEnrollment";
 
 const emptyForm = {
@@ -61,7 +61,21 @@ export default function ApplicantAccountsClient({
       }
       setApplicants(current => current.map(item => item.id === applicant.id ? { ...item, isActive: true } : item));
       setSetup(result.setup ?? null);
-      setToast({ type: "success", message: `${applicant.name} was approved. Share the one-time setup link.` });
+      setToast(result.emailSent
+        ? { type: "success", message: `${applicant.name} was approved and credentials were emailed to ${applicant.email}.` }
+        : { type: "error", message: `${applicant.name} was approved, but email failed: ${result.emailError ?? "Share the setup link manually."}` });
+    });
+  };
+
+  const emailCredentials = (applicant: any) => {
+    startTransition(async () => {
+      const result = await sendApplicantCredentials(applicant.id);
+      if (!result.success) {
+        setToast({ type: "error", message: result.error ?? "Credentials could not be emailed." });
+        return;
+      }
+      setSetup(result.setup ?? null);
+      setToast({ type: "success", message: `Fresh credentials were emailed to ${applicant.email}.` });
     });
   };
 
@@ -107,7 +121,7 @@ export default function ApplicantAccountsClient({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="page-title">Applicant Accounts</h1>
-          <p className="page-subtitle">Create applicants, approve them, then share a secure one-time setup link.</p>
+          <p className="page-subtitle">Create applicants, approve them, and email fresh login credentials whenever needed.</p>
         </div>
         <button onClick={() => setShowForm(true)} className="btn-primary"><Plus className="h-4 w-4" />Create Applicant</button>
       </div>
@@ -124,21 +138,22 @@ export default function ApplicantAccountsClient({
                 <td>{applicant.applicant?.applyingForClass ?? "—"}</td>
                 <td><span className="badge-yellow">{applicant.applicant?.status ?? "PENDING"}</span></td>
                 <td><span className={applicant.isActive ? "badge-green" : "badge-yellow"}>{applicant.isActive ? "Approved" : "Pending Approval"}</span></td>
-                <td className="text-right">
-                  {!applicant.isActive && (
-                    <button disabled={pending} onClick={() => approveAndSend(applicant)} className="btn-ghost btn-sm text-emerald-700 gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5" />Approve &amp; Get Link
-                    </button>
+                <td className="min-w-[320px] text-right">
+                  {applicant.isActive ? (
+                    <div className="ml-auto grid w-full max-w-sm grid-cols-2 gap-2">
+                      <button disabled={pending} onClick={() => emailCredentials(applicant)} className="btn-ghost btn-sm w-full justify-center whitespace-nowrap text-emerald-700 gap-1"><Mail className="h-3.5 w-3.5"/>Send credentials</button>
+                      <button onClick={() => setRemoveTarget(applicant)} className="btn-ghost btn-sm w-full justify-center whitespace-nowrap text-danger gap-1" aria-label={`Remove ${applicant.name}`}><Trash2 className="h-3.5 w-3.5"/>Remove</button>
+                      <select aria-label={`Enrollment class for ${applicant.name}`} className="input w-full py-1 text-xs" value={enrollmentClass[applicant.id] ?? enrollmentClasses[0]?.id ?? ""} onChange={event => setEnrollmentClass(current => ({ ...current, [applicant.id]: event.target.value }))}>
+                        {enrollmentClasses.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+                      </select>
+                      <button disabled={pending} onClick={() => enroll(applicant)} className="btn-ghost btn-sm w-full justify-center whitespace-nowrap text-brand-700 gap-1"><UserCheck className="h-3.5 w-3.5"/>Enroll</button>
+                    </div>
+                  ) : (
+                    <div className="ml-auto grid w-full max-w-sm grid-cols-2 gap-2">
+                      <button disabled={pending} onClick={() => approveAndSend(applicant)} className="btn-ghost btn-sm w-full justify-center whitespace-nowrap text-emerald-700 gap-1"><CheckCircle2 className="h-3.5 w-3.5"/>Approve &amp; Email</button>
+                      <button onClick={() => setRemoveTarget(applicant)} className="btn-ghost btn-sm w-full justify-center whitespace-nowrap text-danger gap-1" aria-label={`Remove ${applicant.name}`}><Trash2 className="h-3.5 w-3.5"/>Remove</button>
+                    </div>
                   )}
-                  {applicant.isActive && <div className="inline-flex items-center gap-1">
-                    <select className="input py-1 text-xs w-36" value={enrollmentClass[applicant.id] ?? enrollmentClasses[0]?.id ?? ""} onChange={event => setEnrollmentClass(current => ({ ...current, [applicant.id]: event.target.value }))}>
-                      {enrollmentClasses.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
-                    </select>
-                    <button disabled={pending} onClick={() => enroll(applicant)} className="btn-ghost btn-sm text-brand-700 gap-1"><UserCheck className="h-3.5 w-3.5"/>Enroll</button>
-                  </div>}
-                  <button onClick={() => setRemoveTarget(applicant)} className="btn-ghost btn-sm text-danger gap-1" aria-label={`Remove ${applicant.name}`}>
-                    <Trash2 className="h-3.5 w-3.5" />Remove
-                  </button>
                 </td>
               </tr>
             ))}

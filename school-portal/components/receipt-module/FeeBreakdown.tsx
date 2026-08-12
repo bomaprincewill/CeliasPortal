@@ -1331,7 +1331,7 @@ export default function FeeBreakdown() {
             <div className='text-center py-6 text-gray-500'>
               <p>No balance payments added yet.</p>
               <p className='text-sm mt-1'>
-                Click "Add Balance Payment" to add balance payments for tracking.
+                Click &quot;Add Balance Payment&quot; to add balance payments for tracking.
               </p>
             </div>
           )}

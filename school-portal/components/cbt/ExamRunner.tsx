@@ -37,18 +37,6 @@ export default function ExamRunner({ examId, title, durationMins, passMark, inst
   const [result, setResult]     = useState<ExamResult | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
-  // Timer
-  useEffect(() => {
-    if (phase !== "exam") return;
-    intervalRef.current = setInterval(() => {
-      setTimeLeft(t => {
-        if (t <= 1) { clearInterval(intervalRef.current); handleSubmit(true); return 0; }
-        return t - 1;
-      });
-    }, 1000);
-    return () => clearInterval(intervalRef.current);
-  }, [phase]);
-
   const handleSubmit = useCallback(async (auto = false) => {
     clearInterval(intervalRef.current);
     setConfirm(false);
@@ -60,6 +48,18 @@ export default function ExamRunner({ examId, title, durationMins, passMark, inst
     } catch { alert("Submission failed. Please try again."); }
     finally { setSubmitting(false); }
   }, [answers, onSubmit]);
+
+  // Timer
+  useEffect(() => {
+    if (phase !== "exam") return;
+    intervalRef.current = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) { clearInterval(intervalRef.current); void handleSubmit(true); return 0; }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(intervalRef.current);
+  }, [handleSubmit, phase]);
 
   const setAnswer = (qId: string, val: string) => setAnswers(p => ({ ...p, [qId]: val }));
 

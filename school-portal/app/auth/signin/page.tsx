@@ -39,10 +39,19 @@ function SignInForm() {
 
   const quickLogin = async (demoAccount: string) => {
     setLoading(true); setError("");
-    const res = await signIn("credentials", { demoAccount, redirect: false });
+    const demoDestinations: Record<string, string> = {
+      "admin@school.edu": "/admin/dashboard",
+      "finance@school.edu": "/finance/dashboard",
+      "adaeze@school.edu": "/teacher/dashboard",
+      "ngozi@school.edu": "/teacher/dashboard",
+      "parent@school.edu": "/parent/dashboard",
+      "applicant@school.edu": "/applicant/dashboard",
+    };
+    const destination = demoDestinations[demoAccount] ?? "/auth/signin";
+    const res = await signIn("credentials", { demoAccount, redirect: false, callbackUrl: destination });
     setLoading(false);
     if (res?.error) { setError("Demo login is unavailable. Run the development seed first."); return; }
-    await completeSignIn();
+    window.location.assign(destination);
   };
 
   return (

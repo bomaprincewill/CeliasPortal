@@ -78,12 +78,14 @@ async function main() {
     const baseCode = abbreviateSubjectName(name);
     let code = baseCode;
     let suffix = 2;
-    while (usedSubjectCodes.has(code)) code = `${baseCode.slice(0, 4)}${suffix++}`;
-    usedSubjectCodes.add(code);
-
     const existingSubject = await prisma.subject.findFirst({ where:{ name } });
+    while (
+      usedSubjectCodes.has(code) ||
+      (!existingSubject && await prisma.subject.findUnique({ where: { code } }))
+    ) code = `${baseCode.slice(0, 4)}${suffix++}`;
+    usedSubjectCodes.add(existingSubject?.code ?? code);
     const subject = existingSubject
-      ? await prisma.subject.update({ where:{ id:existingSubject.id }, data:{ code, isActive:true } })
+      ? await prisma.subject.update({ where:{ id:existingSubject.id }, data:{ isActive:true } })
       : await prisma.subject.create({ data:{ code, name } });
     subjects.set(name, subject);
   }

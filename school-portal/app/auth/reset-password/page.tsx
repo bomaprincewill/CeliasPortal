@@ -32,7 +32,7 @@ export default function ResetPasswordPage() {
           <>
             <div className="page-header">
               <h2 className="page-title">Reset password</h2>
-              <p className="page-subtitle">Enter your email and we'll send a reset link.</p>
+              <p className="page-subtitle">Enter your email and we&apos;ll send a reset link.</p>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="form-group">

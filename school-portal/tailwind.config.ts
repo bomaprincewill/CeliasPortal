@@ -27,8 +27,8 @@ const config: Config = {
         warn:    "#d97706",
       },
       fontFamily: {
-        sans:    ["Segoe UI", "Arial", "system-ui", "sans-serif"],
-        display: ["Segoe UI", "Arial", "system-ui", "sans-serif"],
+        sans:    ["var(--font-plus-jakarta-sans)", "system-ui", "sans-serif"],
+        display: ["var(--font-plus-jakarta-sans)", "system-ui", "sans-serif"],
         mono:    ["Cascadia Mono", "Consolas", "monospace"],
       },
     },

@@ -9,7 +9,7 @@ import {
   UserCheck, Home, ChevronDown, ChevronRight, X, AlertTriangle, LockKeyhole,
 } from "lucide-react";
 import { cn } from "@/components/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type NavItem = {
   label: string; href: string; icon: React.ElementType;
@@ -121,7 +121,7 @@ export default function Sidebar({ open = false, onClose }: { open?: boolean; onC
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const role = session?.user?.role as string | undefined;
-  const nav  = role ? NAV_BY_ROLE[role] ?? [] : [];
+  const nav = useMemo(() => role ? NAV_BY_ROLE[role] ?? [] : [], [role]);
 
   useEffect(() => {
     const activeGroup = nav.find((item) =>

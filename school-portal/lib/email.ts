@@ -10,6 +10,15 @@ type ApplicantCredentials = {
   applyingForClass: string;
 };
 
+type ApplicantSetupDetails = {
+  to: string;
+  name: string;
+  setupUrl: string;
+  applicationNo: string;
+  applyingForClass: string;
+  deliveryId: string;
+};
+
 function escapeHtml(value: string) {
   return value.replace(/[&<>'"]/g, character => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
@@ -113,6 +122,44 @@ export async function sendApplicantCredentialsEmail(details: ApplicantCredential
           <p><a href="${escapeHtml(loginUrl)}" style="display:inline-block;padding:10px 16px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:6px">Sign in to the applicant portal</a></p>
           <p>Please keep these login details private.</p>
         </div>`,
+  });
+}
+
+export async function sendApplicantSetupEmail(details: ApplicantSetupDetails) {
+  const schoolName = process.env.SCHOOL_NAME?.trim() || "School Portal";
+  return sendTransactionalEmail({
+    to: details.to,
+    subject: `${schoolName} applicant login details`,
+    idempotencyKey: `applicant-setup/${details.deliveryId}`,
+    text: [
+      `Hello ${details.name},`,
+      "",
+      `Your applicant account for ${schoolName} is ready.`,
+      `Application number: ${details.applicationNo}`,
+      `Applying for: ${details.applyingForClass}`,
+      `Login email: ${details.to}`,
+      "",
+      "Create or reset your password using this secure one-time link (valid for 24 hours):",
+      details.setupUrl,
+      "",
+      `After setting your password, sign in using this email address: ${details.to}`,
+      "If you did not expect this message, contact the school administration.",
+    ].join("\n"),
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;color:#172033;max-width:600px">
+        <h2>${escapeHtml(schoolName)} applicant account</h2>
+        <p>Hello ${escapeHtml(details.name)},</p>
+        <p>Your applicant account is ready.</p>
+        <table style="border-collapse:collapse;width:100%;margin:20px 0">
+          <tr><td style="padding:8px;border:1px solid #ddd"><strong>Application number</strong></td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(details.applicationNo)}</td></tr>
+          <tr><td style="padding:8px;border:1px solid #ddd"><strong>Applying for</strong></td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(details.applyingForClass)}</td></tr>
+          <tr><td style="padding:8px;border:1px solid #ddd"><strong>Login email</strong></td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(details.to)}</td></tr>
+        </table>
+        <p>Use the button below to create or reset your password. The link works once and expires after 24 hours.</p>
+        <p><a href="${escapeHtml(details.setupUrl)}" style="display:inline-block;padding:10px 16px;background:#00843d;color:#fff;text-decoration:none;border-radius:6px">Create or reset password</a></p>
+        <p>After setting your password, sign in using <strong>${escapeHtml(details.to)}</strong>.</p>
+        <p>If you did not expect this message, contact the school administration.</p>
+      </div>`,
   });
 }
 
