@@ -56,3 +56,23 @@ when checking the configured database from a local development environment.
 - Configure a verified transactional email domain before sending password or applicant setup links.
 - Remove demonstration data and never use the development seed password in production.
 - Monitor the public `/api/health` and `/api/health/ready` endpoints from your hosting platform.
+
+## Completed session rollover
+
+The 2025/2026 cohort was advanced one grade into 2026/2027, retaining class
+arms. SS 3 students were marked graduated. Historical results and reports
+remain in their original session. Families use the student's login to view
+results; separate parent accounts and family links are optional.
+
+From the `school-portal` directory, preview the fixed-session rollover:
+
+```powershell
+node --import tsx scripts/promote-session.ts --final-year=graduate
+```
+
+Adding `--execute` applies pending changes in one database transaction after
+saving a private rollback snapshot under `private-imports/session-rollovers`.
+The script validates existing destination enrollments to prevent a repeated
+run from advancing students twice, checks capacity, and verifies that
+historical result and report records remain unchanged. It is specific to
+these two sessions; review the mapping before adapting it for another year.

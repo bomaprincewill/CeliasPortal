@@ -12,10 +12,18 @@ Vercel project: `celias-portal-school-portal`.
   database readiness, role portals, finance API, and CBT API protection.
 - The configured database is reachable and has every repository migration.
 - Academic session `2026/2027` is current; school settings exist.
-- There are 35 active teacher profiles and 250 active teacher/subject/class
+- There are 35 active teacher profiles and 318 active teacher/subject/class
   assignments in `2026/2027`.
 - The database contains 9,222 result records. Source-to-report acceptance
   checks remain necessary; record counts alone do not establish accuracy.
+- The 2025/2026 rollover is complete: 214 students advanced one grade into
+  2026/2027 and 13 SS 3 students graduated. Five destination class arms were
+  created, retaining the original arms and copying same-grade subject assignments.
+- All 9,222 historical results and 597 compiled reports were fingerprinted
+  before and after the rollover and remain unchanged. A private rollback
+  snapshot is saved locally under `private-imports/session-rollovers`.
+- A repeated read-only rollover check validates all 214 destination
+  enrollments and finds no pending promotions.
 
 ## Code prepared for release
 
@@ -45,16 +53,17 @@ Vercel project: `celias-portal-school-portal`.
 3. **Demo accounts:** four seed accounts remain active. Review and disable
    them after the real administrator has access; preserve school records
    rather than running destructive demo cleanup scripts.
-4. **Student access:** 175 of 227 eligible active students lack usable login
+4. **Student access:** 162 of 214 eligible active students lack usable login
    accounts. Supply approved student login emails. In Admin → Users, bulk
    upload accounts using Name, Email, Password, Role=STUDENT, and Student ID
-   matching the existing student record. Nursery pupils use parent access.
-5. **Parent access:** all 227 active students lack usable parent links. Create
-   approved parent accounts and use Admin → Family Links to connect each
-   parent to the correct children. Never infer these relationships from names.
-6. **Enrollment:** there are zero active enrollments in `2026/2027`. Confirm
-   promotions/admissions in Admin → Enrollments. Imported historical records
-   do not establish current enrollment.
+   matching the existing student record. All grades, including nursery, may
+   have student accounts. Families view results through the pupil's student
+   login; separate parent accounts and links are optional.
+5. **Form teachers:** 12 occupied classes in `2026/2027` need approved form
+   teacher assignments. Subject teachers already exist; form responsibilities
+   must be assigned by the school.
+6. **Enrollment:** there are 214 active enrollments in `2026/2027`. Review
+   new admissions separately; the historical cohort rollover is complete.
 7. **Backups:** confirm production database backup availability and perform
    a restore exercise in an isolated database before broad rollout. Backup
    and restore status have not been verified through the available access.

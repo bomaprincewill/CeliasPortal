@@ -37,12 +37,11 @@ async function main() {
     const teacherCount = await prisma.teacher.count({ where: { user: { isActive: true } } });
     console.log(`INFO Teachers: ${teacherCount} active teacher profiles.`);
     const studentCount = await prisma.student.count({ where: { isActive: true, status: "ACTIVE" } });
-    const eligible = { isActive: true, status: "ACTIVE" as const, OR: [{ classId: null }, { class: { level: { not: "nursery", mode: "insensitive" as const } } }] };
+    const eligible = { isActive: true, status: "ACTIVE" as const };
     const eligibleCount = await prisma.student.count({ where: eligible });
     const missingLogins = await prisma.student.count({ where: { AND: [eligible, { OR: [{ userId: null }, { user: { isActive: false } }, { user: { passwordHash: null } }, { user: { role: { not: "STUDENT" } } }] }] } });
-    const missingParents = await prisma.student.count({ where: { isActive: true, status: "ACTIVE", parents: { none: { parent: { user: { isActive: true, role: "PARENT", passwordHash: { not: null } } } } } } });
-    check("Student logins", studentCount > 0 && missingLogins === 0, `${eligibleCount} eligible students; ${missingLogins} lack usable logins. Nursery pupils use parent access.`);
-    check("Parent links", studentCount > 0 && missingParents === 0, `${missingParents} active students lack an active parent account link.`);
+    check("Student logins", studentCount > 0 && missingLogins === 0, `${eligibleCount} eligible students; ${missingLogins} lack usable logins. Families view results using each pupil's student account.`);
+    console.log("INFO Parent access: separate parent accounts and family links are optional and do not block launch.");
     if (current.length === 1) {
       const enrolled = await prisma.studentEnrollment.count({ where: { sessionId: current[0].id, status: "ACTIVE", student: { isActive: true, status: "ACTIVE" } } });
       check("Current-session enrollments", enrolled > 0, `${enrolled} active enrollments in ${current[0].name}; confirm promotions and new admissions with the school.`);

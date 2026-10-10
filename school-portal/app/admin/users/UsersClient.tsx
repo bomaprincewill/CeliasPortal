@@ -353,7 +353,7 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
             <div className="rounded-xl border border-border bg-slate-50 p-4 text-sm">
               <p className="font-semibold text-ink">Required table columns</p>
               <p className="mt-1 font-mono text-xs">Name | Email | Password | Role | Student ID</p>
-              <p className="mt-2 text-xs text-muted">Roles include Pupil and Student. Student ID (or Admission No) is required only for learner rows and must match an existing record. Nursery pupils do not receive accounts; their parents view results through linked parent accounts.</p>
+              <p className="mt-2 text-xs text-muted">Roles include Pupil and Student for all grades, including nursery. Student ID (or Admission No) is required only for learner rows and must match an existing record. Families view results using the pupil&apos;s student account; separate parent accounts and links are optional.</p>
             </div>
             <form action={handleBulkUpload} className="space-y-4">
               <input name="file" type="file" required accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="input py-2"/>

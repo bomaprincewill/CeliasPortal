@@ -153,10 +153,6 @@ export async function bulkUploadUsers(formData: FormData) {
           errors.push(`Row ${rowNumber}: ${studentId} already has a user account.`);
           continue;
         }
-        if (learner.class?.level.toLowerCase() === "nursery") {
-          errors.push(`Row ${rowNumber}: Nursery pupils do not receive user accounts; link the pupil to a parent account instead.`);
-          continue;
-        }
       }
 
       try {
