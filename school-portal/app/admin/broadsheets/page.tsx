@@ -66,7 +66,13 @@ export default async function AdminBroadSheetsPage({ searchParams }: PageProps) 
             term,
             status: { in: ["SUBMITTED", "APPROVED", "LOCKED"] },
           },
-          select: { studentId: true, subjectId: true, total: true, grade: true },
+          select: {
+            studentId: true,
+            subjectId: true,
+            total: true,
+            grade: true,
+            subject: { select: { id: true, name: true, code: true } },
+          },
         }),
         prisma.broadSheet.findMany({
           where: { classId: selectedClassId, sessionId: selectedSessionId, term },
@@ -80,14 +86,19 @@ export default async function AdminBroadSheetsPage({ searchParams }: PageProps) 
           },
         }),
         prisma.student.findMany({
-          where: { classId: selectedClassId, isActive: true },
+          where: { enrollments: { some: { classId: selectedClassId, sessionId: selectedSessionId } } },
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
           select: { id: true, studentId: true, firstName: true, lastName: true },
         }),
       ])
     : [[], [], [], []];
 
-  const subjects = assignments.map((assignment) => assignment.subject);
+  // Historical imports may predate teacher assignments. Include subjects that
+  // are present in results so an administrator can still view their sheets.
+  const subjects = [...new Map([
+    ...assignments.map((assignment) => [assignment.subject.id, assignment.subject] as const),
+    ...results.map((result) => [result.subject.id, result.subject] as const),
+  ]).values()].sort((a, b) => a.name.localeCompare(b.name));
   const broadSheetMap = new Map(broadSheetRows.map((row) => [row.studentId, row]));
   const resultMap = new Map<string, Map<string, { total: number; grade: string }>>();
 

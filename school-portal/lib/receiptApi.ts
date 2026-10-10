@@ -11,8 +11,25 @@ async function request(method: string, body?: ReceiptPayload, query = "") {
   return result;
 }
 
+async function listPage(search = "", cursor?: number) {
+  const query = new URLSearchParams({ search });
+  if (cursor) query.set("cursor", String(cursor));
+  return request("GET", undefined, `?${query}`);
+}
+
 export const receiptApi = {
-  list: (search = "") => request("GET", undefined, search ? `?search=${encodeURIComponent(search)}` : ""),
+  listPage,
+  // Aggregate screens need every record: fetch bounded pages, never silently truncate balances.
+  list: async (search = "") => {
+    const items = [];
+    let cursor: number | undefined;
+    do {
+      const page = await listPage(search, cursor);
+      items.push(...page.items);
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    return items;
+  },
   create: (payload: ReceiptPayload) => request("POST", payload),
   update: (id: number, payload: ReceiptPayload) => request("PATCH", { ...payload, id }),
   remove: (id: number) => request("DELETE", { id }),

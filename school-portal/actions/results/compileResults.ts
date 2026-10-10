@@ -20,30 +20,10 @@ import { revalidatePath } from "next/cache";
 import type { Term, ResultStatus } from "@/types";
 import { headers } from "next/headers";
 import { hasExactSubjectAssignment } from "@/lib/authorization";
+import { assignGrade, configuredGradeBands, type GradeBand } from "@/lib/grading";
 
 // ─── Grading Scale ────────────────────────────────────────────
 
-interface GradeBand {
-  min: number;
-  max: number;
-  grade: string;
-  gradePoint: number;
-  remark: string;
-}
-
-const GRADING_SCALE: GradeBand[] = [
-  { min: 75, max: 100, grade: "A",  gradePoint: 4.0, remark: "Distinction"  },
-  { min: 65, max: 74,  grade: "B",  gradePoint: 3.5, remark: "Credit"       },
-  { min: 55, max: 64,  grade: "C",  gradePoint: 3.0, remark: "Merit"        },
-  { min: 45, max: 54,  grade: "D",  gradePoint: 2.0, remark: "Pass"         },
-  { min: 40, max: 44,  grade: "E",  gradePoint: 1.0, remark: "Weak Pass"    },
-  { min: 0,  max: 39,  grade: "F",  gradePoint: 0.0, remark: "Fail"         },
-];
-
-function assignGrade(total: number): GradeBand {
-  const band = GRADING_SCALE.find((b) => total >= b.min && total <= b.max);
-  return band ?? GRADING_SCALE[GRADING_SCALE.length - 1]; // default F
-}
 
 // ─── Input / Output Types ─────────────────────────────────────
 
@@ -109,13 +89,13 @@ export async function compileClassResults(
   const [classRecord, students] = await Promise.all([
     prisma.class.findUnique({ where: { id: classId } }),
     prisma.student.findMany({
-      where: { classId, isActive: true },
+      where: { enrollments: { some: { classId, sessionId } } },
       select: { id: true, firstName: true, lastName: true, studentId: true },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
   ]);
 
-  if (!classRecord) {
+  if (!classRecord || classRecord.sessionId !== sessionId) {
     return {
       success: false,
       message: "Class not found.",
@@ -157,6 +137,9 @@ export async function compileClassResults(
 
   // Get unique subjects
   const subjectIds = [...new Set(results.map((r) => r.subjectId))];
+  const grading = configuredGradeBands(await prisma.gradeBand.findMany({ where: { settingId: "default" } }));
+  const existingSheets = await prisma.broadSheet.findMany({ where: { classId, sessionId, term }, select: { studentId: true, isLocked: true } });
+  const lockedStudents = new Set(existingSheets.filter(sheet => sheet.isLocked).map(sheet => sheet.studentId));
 
   // ── 4. Build student score map ────────────────────────────────
   //   { [studentId]: { total: X, subjects: [...], average: Y } }
@@ -201,14 +184,15 @@ export async function compileClassResults(
     const ca2  = result.ca2  ?? 0;
     const ca3  = result.ca3  ?? 0;
     const exam = result.examScore ?? 0;
-    const total = Math.min(
+    const computedTotal = Math.min(
       ca1 + ca2 + ca3 + exam,
       result.maxTotal // cap at configured max
     );
 
-    const band = assignGrade(total);
+    const total = result.status === "LOCKED" ? result.total ?? computedTotal : computedTotal;
+    const band = assignGrade(total, grading);
 
-    if (!rankOnly) {
+    if (!rankOnly && result.status !== "LOCKED" && !lockedStudents.has(result.studentId)) {
       resultUpdates.push({
         id:         result.id,
         total,
@@ -263,7 +247,8 @@ export async function compileClassResults(
     const subjectResults = results.filter((r) => r.subjectId === subjectId);
     const sorted = subjectResults
       .map((r) => {
-        const total = (r.ca1 ?? 0) + (r.ca2 ?? 0) + (r.ca3 ?? 0) + (r.examScore ?? 0);
+        const computed = Math.min((r.ca1 ?? 0) + (r.ca2 ?? 0) + (r.ca3 ?? 0) + (r.examScore ?? 0), r.maxTotal);
+        const total = r.status === "LOCKED" ? r.total ?? computed : computed;
         return { id: r.id, studentId: r.studentId, total };
       })
       .sort((a, b) => b.total - a.total);
@@ -288,12 +273,15 @@ export async function compileClassResults(
   const ip = headersList.get("x-forwarded-for") ?? "unknown";
 
   await prisma.$transaction(async (tx) => {
+    const lockedSheets = await tx.broadSheet.findMany({ where: { classId, sessionId, term, isLocked: true }, select: { studentId: true } });
+    const currentlyLocked = new Set(lockedSheets.map(sheet => sheet.studentId));
     // Update individual result records
     if (!rankOnly) {
       for (const update of resultUpdates) {
+        if (currentlyLocked.has(results.find(result => result.id === update.id)!.studentId)) continue;
         const { id, ...data } = update;
-        await tx.result.update({
-          where: { id },
+        await tx.result.updateMany({
+          where: { id, status: { not: "LOCKED" } },
           data: {
             ...data,
             ...(data.status === "LOCKED" ? { lockedAt: new Date(), lockedById: session.user.id } : {}),
@@ -304,6 +292,7 @@ export async function compileClassResults(
 
     // Upsert BroadSheet rows
     for (const summary of ranked) {
+      if (lockedStudents.has(summary.studentId) || currentlyLocked.has(summary.studentId)) continue;
       await tx.broadSheet.upsert({
         where: {
           classId_sessionId_term_studentId: {
@@ -356,7 +345,7 @@ export async function compileClassResults(
         ipAddress: ip,
       },
     });
-  });
+  }, { maxWait: 10_000, timeout: 60_000, isolationLevel: "Serializable" });
 
   // ── 9. Compute stats for response ────────────────────────────
   const classAverage =
@@ -441,6 +430,7 @@ export async function submitResultsForApproval(input: {
     const isAssigned = await hasExactSubjectAssignment(session.user.id, classId, subjectId);
     if (!isAssigned) return { success: false, message: "Not assigned to this class/subject.", count: 0 };
   }
+  if (session.user.role === "FORM_TEACHER" && session.user.formClassId !== classId) return { success: false, message: "Not assigned to this form class.", count: 0 };
 
   const headersList = await headers();
   const ip = headersList.get("x-forwarded-for") ?? "unknown";
@@ -469,7 +459,7 @@ export async function submitResultsForApproval(input: {
 
   await prisma.$transaction([
     prisma.result.updateMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, status: "DRAFT" },
       data: { status: "SUBMITTED", submittedAt: new Date() },
     }),
     prisma.auditLog.create({

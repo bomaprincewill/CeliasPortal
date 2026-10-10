@@ -2,7 +2,7 @@
 import { useState, useRef, useTransition } from "react";
 import { Upload, Download, FileText, AlertTriangle, CheckCircle2, X, Loader2 } from "lucide-react";
 import { cn, Toast } from "@/components/ui";
-import { uploadScores, parseScoreUpload } from "@/actions/results/uploadScores";
+import { uploadScores, uploadBroadSheetScores, parseScoreUpload } from "@/actions/results/uploadScores";
 import type { Term } from "@/types";
 
 interface Props {
@@ -24,6 +24,8 @@ export default function ScoreUploader({ classId, subjectId, sessionId, term, sub
   const [dragging, setDragging] = useState(false);
   const [preview,  setPreview]  = useState<{ headers: string[]; rows: string[][] } | null>(null);
   const [rawRows,  setRawRows]  = useState<any[]>([]);
+  const [broadSheetRows, setBroadSheetRows] = useState<any[]>([]);
+  const [uploadFormat, setUploadFormat] = useState<"single-subject" | "broad-sheet">("single-subject");
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [toast,    setToast]    = useState<any>(null);
   const [isPending, start]      = useTransition();
@@ -45,6 +47,8 @@ export default function ScoreUploader({ classId, subjectId, sessionId, term, sub
       const result = await parseScoreUpload(formData);
       setParseErrors(result.errors);
       setRawRows(result.rows);
+      setBroadSheetRows(result.broadSheetRows ?? []);
+      setUploadFormat(result.format ?? "single-subject");
       setPreview(result.preview.headers.length > 0 ? result.preview : null);
       setToast({ type: result.success ? "success" : "error", message: result.message });
     });
@@ -62,12 +66,14 @@ export default function ScoreUploader({ classId, subjectId, sessionId, term, sub
   };
 
   const handleUpload = () => {
-    if (rawRows.length === 0) return;
+    if (rawRows.length === 0 && broadSheetRows.length === 0) return;
     start(async () => {
-      const result = await uploadScores({ classId, subjectId, sessionId, term, rows: rawRows, maxCA1, maxCA2, maxCA3, maxExam });
+      const result = uploadFormat === "broad-sheet"
+        ? await uploadBroadSheetScores({ classId, sessionId, term, rows: broadSheetRows })
+        : await uploadScores({ classId, subjectId, sessionId, term, rows: rawRows, maxCA1, maxCA2, maxCA3, maxExam });
       if (result.success) {
         setToast({ type:"success", message: result.message });
-        setPreview(null); setRawRows([]);
+        setPreview(null); setRawRows([]); setBroadSheetRows([]);
         onSuccess?.(result.imported);
       } else {
         setToast({ type: result.imported > 0 ? "warning" : "error", message: result.message });
@@ -95,7 +101,7 @@ export default function ScoreUploader({ classId, subjectId, sessionId, term, sub
           <p className="text-xs text-muted mt-0.5">{subjectName} · {className}</p>
         </div>
         <button onClick={downloadTemplate} className="btn-secondary btn-sm gap-2">
-          <Download className="w-3.5 h-3.5"/> CSV Template
+          <Download className="w-3.5 h-3.5"/> Single-subject CSV
         </button>
       </div>
 
@@ -140,10 +146,10 @@ export default function ScoreUploader({ classId, subjectId, sessionId, term, sub
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-brand-600"/>
-              <span className="text-sm font-medium text-ink">{rawRows.length} rows detected</span>
-              {rawRows.length > 0 && <span className="badge-green">Ready to import</span>}
+              <span className="text-sm font-medium text-ink">{uploadFormat === "broad-sheet" ? `${broadSheetRows.length} students across all detected subjects` : `${rawRows.length} rows detected`}</span>
+              {(rawRows.length > 0 || broadSheetRows.length > 0) && <span className="badge-green">Ready to import</span>}
             </div>
-            <button onClick={() => { setPreview(null); setRawRows([]); setParseErrors([]); }} className="btn-ghost btn-icon btn-sm">
+            <button onClick={() => { setPreview(null); setRawRows([]); setBroadSheetRows([]); setParseErrors([]); }} className="btn-ghost btn-icon btn-sm">
               <X className="w-4 h-4"/>
             </button>
           </div>
@@ -164,32 +170,34 @@ export default function ScoreUploader({ classId, subjectId, sessionId, term, sub
                 </tbody>
               </table>
             </div>
-            {rawRows.length > 5 && (
+            {(uploadFormat === "broad-sheet" ? broadSheetRows.length : rawRows.length) > 5 && (
               <div className="px-4 py-2 text-xs text-muted border-t border-border">
-                …and {rawRows.length - 5} more rows
+                ...and {(uploadFormat === "broad-sheet" ? broadSheetRows.length : rawRows.length) - 5} more rows
               </div>
             )}
           </div>
 
           <div className="flex gap-3">
-            <button onClick={handleUpload} disabled={isPending || rawRows.length === 0} className="btn-primary gap-2">
-              {isPending ? <><Loader2 className="w-4 h-4 animate-spin"/>Importing…</> : <><CheckCircle2 className="w-4 h-4"/>Import {rawRows.length} Scores</>}
+            <button onClick={handleUpload} disabled={isPending || (uploadFormat === "broad-sheet" ? broadSheetRows.length === 0 : rawRows.length === 0)} className="btn-primary gap-2">
+              {isPending ? <><Loader2 className="w-4 h-4 animate-spin"/>Importing...</> : uploadFormat === "broad-sheet" ? <><CheckCircle2 className="w-4 h-4"/>Import {broadSheetRows.length} Students&apos; Scores</> : <><CheckCircle2 className="w-4 h-4"/>Import {rawRows.length} Scores</>}
             </button>
-            <button onClick={() => { setPreview(null); setRawRows([]); }} className="btn-secondary">Cancel</button>
+            <button onClick={() => { setPreview(null); setRawRows([]); setBroadSheetRows([]); setParseErrors([]); }} className="btn-secondary">Cancel</button>
           </div>
         </div>
       )}
 
       {/* Format guide */}
       <div className="bg-slate-50 rounded-xl border border-border p-4">
-        <p className="text-xs font-semibold text-ink mb-2">Expected table format in every file type:</p>
-        <pre className="text-xs font-mono text-muted overflow-x-auto">{`StudentID,CA1,CA2,CA3,Exam
-STU/2024/001,8,7,9,62
-STU/2024/002,10,8,10,65`}</pre>
+        <p className="text-xs font-semibold text-ink mb-2">Excel broadsheet format</p>
+        <pre className="text-xs font-mono text-muted overflow-x-auto">{`S/N | Name              | Mathematics        | English Language
+    |                   | CA1 | CA2 | EXAM | CA1 | CA2 | EXAM
+1   | Student full name | 18  | 20  | 56   | 17  | 19  | 53
+    | CIS2025/1234      |     |     |      |     |     |`}</pre>
         <p className="text-xs text-muted mt-2">
-          · Use the student registration number (e.g. STU/2024/001)<br/>
-          · Leave cells blank to skip that component<br/>
-          · Word files should contain a table; PDFs must contain selectable text<br/>
+          · Use an Excel file with S/N and Name headings; place each student&apos;s CIS ID on the row directly below their name<br/>
+          · Each subject may include CA1, CA2, CA3 (optional), and EXAM; Total, Average, Position, and Actions are ignored<br/>
+          · The sheet imports every detected subject for the selected class and term<br/>
+          · For one subject only, use the downloadable CSV template<br/>
           · Locked results will be skipped automatically
         </p>
       </div>

@@ -2,9 +2,11 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import ReportCard from "@/components/results/ReportCard";
-import { Printer, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import Link from "next/link";
 import type { Term } from "@/types";
+import PrintButton from "@/components/results/PrintButton";
+import { configuredGradeBands } from "@/lib/grading";
 
 export default async function ParentReportPage({
   params,
@@ -19,6 +21,7 @@ export default async function ParentReportPage({
   const { studentId } = await params;
   const query = await searchParams;
   const term = (query.term ?? "FIRST") as Term;
+  if (!["FIRST", "SECOND", "THIRD"].includes(term)) notFound();
 
   // Authorization: a parent can only view a pupil explicitly linked to their account.
   const link = await prisma.parentStudent.findFirst({
@@ -30,7 +33,7 @@ export default async function ParentReportPage({
   const currentSession = await prisma.academicSession.findFirst({ where: { isCurrent: true } });
   const sessionId      = query.sessionId ?? currentSession?.id ?? "";
 
-  const [student, results, broadSheet, attendance, comments] = await Promise.all([
+  const [student, results, broadSheet, attendance, comments, academicSession, enrollment, school] = await Promise.all([
     prisma.student.findUnique({
       where: { id: studentId },
       include: { class: { select: { name:true, arm:true } } },
@@ -43,16 +46,19 @@ export default async function ParentReportPage({
     prisma.broadSheet.findFirst({ where: { studentId, sessionId, term } }),
     prisma.attendance.groupBy({
       by: ["status"],
-      where: { studentId, sessionId },
+      where: { studentId, sessionId, term },
       _count: { status: true },
     }),
     prisma.resultComment.findMany({
       where: { studentId, sessionId, term },
       include: { teacher: { include: { user: { select: { name:true } } } } },
     }),
+    prisma.academicSession.findUnique({ where: { id: sessionId } }),
+    prisma.studentEnrollment.findUnique({ where: { studentId_sessionId: { studentId, sessionId } }, include: { class: true } }),
+    prisma.schoolSetting.findUnique({ where: { id: "default" }, include: { gradeBands: true } }),
   ]);
 
-  if (!student) notFound();
+  if (!student || !academicSession || !enrollment) notFound();
 
   const formTeacherComment = comments.find(c => c.type === "FORM_TEACHER")?.comment;
   const principalComment   = comments.find(c => c.type === "PRINCIPAL")?.comment;
@@ -95,12 +101,7 @@ export default async function ParentReportPage({
             className="btn-secondary btn-sm gap-2" target="_blank">
             <Download className="w-3.5 h-3.5"/> PDF
           </a>
-          <button onClick={undefined} className="btn-primary btn-sm gap-2"
-            suppressHydrationWarning
-            // Use inline onClick for print since this is a server component
-          >
-            <Printer className="w-3.5 h-3.5"/> Print
-          </button>
+          <PrintButton />
         </div>
       </div>
 
@@ -112,19 +113,20 @@ export default async function ParentReportPage({
 
       <ReportCard
         school={{
-          name:    "Model Primary & Secondary School",
-          address: "14 Education Road, Lagos State, Nigeria",
-          motto:   "Excellence Through Knowledge",
+          name:    school?.name ?? "School Portal",
+          address: school?.address ?? "",
+          motto:   school?.motto ?? undefined,
         }}
         student={{
           name:        `${student.firstName} ${student.middleName ? student.middleName + " " : ""}${student.lastName}`,
           studentId:   student.studentId,
-          className:   `${student.class?.name ?? ""} ${student.class?.arm ?? ""}`.trim(),
+          className:   `${enrollment.class.name} ${enrollment.class.arm}`.trim(),
           gender:      student.gender,
-          dateOfBirth: new Date(student.dateOfBirth).toLocaleDateString("en-NG", { day:"numeric", month:"long", year:"numeric" }),
+          dateOfBirth: student.dateOfBirth ? new Date(student.dateOfBirth).toLocaleDateString("en-NG", { day:"numeric", month:"long", year:"numeric" }) : "Not recorded",
           photoUrl:    student.photoUrl ?? undefined,
         }}
-        session={currentSession?.name ?? sessionId}
+        session={academicSession.name}
+        grading={configuredGradeBands(school?.gradeBands ?? [])}
         term={term}
         results={subjectResults}
         summary={{
@@ -140,12 +142,6 @@ export default async function ParentReportPage({
         isLocked={broadSheet?.isLocked}
       />
 
-      {/* Print trigger script */}
-      <script dangerouslySetInnerHTML={{ __html: `
-        document.querySelectorAll('button').forEach(b => {
-          if(b.textContent?.includes('Print')) b.onclick = () => window.print();
-        });
-      `}}/>
     </div>
   );
 }

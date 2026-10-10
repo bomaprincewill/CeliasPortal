@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { examDeadline, attemptExpired } from "@/lib/examTiming";
 
 export async function GET(
   request: NextRequest,
@@ -65,15 +66,18 @@ export async function GET(
   try {
     submission = await prisma.$transaction(async tx => {
       const inProgress = await tx.cBTSubmission.findFirst({ where: { examId: exam.id, ...candidateWhere, submittedAt: null }, orderBy: { attemptNumber: "desc" } });
-      if (inProgress) return inProgress;
+      if (inProgress && !attemptExpired(examDeadline(inProgress.startedAt, exam.durationMinutes, exam.scheduledEnd))) return inProgress;
       const attempts = await tx.cBTSubmission.count({ where: { examId: exam.id, ...candidateWhere } });
       if (attempts >= exam.maxAttempts) throw new Error("MAX_ATTEMPTS");
       return tx.cBTSubmission.create({ data: { examId: exam.id, ...candidateWhere, attemptNumber: attempts + 1 } });
-    }, { isolationLevel: "Serializable" });
+    }, { isolationLevel: "Serializable", maxWait: 10_000, timeout: 30_000 });
   } catch (error) {
     if (error instanceof Error && error.message === "MAX_ATTEMPTS") return NextResponse.json({ error: "You have used all permitted attempts for this exam." }, { status: 403 });
     return NextResponse.json({ error: "An exam attempt could not be started. Please try again." }, { status: 409 });
   }
+
+  const deadline = examDeadline(submission.startedAt, exam.durationMinutes, exam.scheduledEnd);
+  if (Date.now() >= deadline.getTime()) return NextResponse.json({ error: "The time allowed for this attempt has expired." }, { status: 403 });
 
   // Shuffle questions if configured
   let questions = exam.questions;
@@ -101,6 +105,8 @@ export async function GET(
     applicantId,
     studentId,
     submissionId: submission.id,
+    deadline: deadline.toISOString(),
+    serverTime: new Date().toISOString(),
     attemptNumber: submission.attemptNumber,
     attemptsRemaining: Math.max(0, exam.maxAttempts - submission.attemptNumber),
   });

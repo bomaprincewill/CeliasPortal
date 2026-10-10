@@ -26,6 +26,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { label: "Results",     href: "/admin/results",     icon: BarChart2,
       children: [
         { label: "Score Entry",  href: "/admin/results" },
+        { label: "Bulk Upload",  href: "/admin/results?upload=1" },
         { label: "Broad Sheets", href: "/admin/broadsheets" },
         { label: "Compile",      href: "/admin/compile" },
       ]

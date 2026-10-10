@@ -4,6 +4,7 @@ import { createHash, randomBytes } from "crypto";
 import { getSession } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
+import { canManageCredentials } from "@/lib/accountPermissions";
 
 export async function generatePasswordSetupLink(userId: string) {
   const session = await getSession();
@@ -13,9 +14,10 @@ export async function generatePasswordSetupLink(userId: string) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, isActive: true },
+    select: { id: true, name: true, email: true, isActive: true, role: true },
   });
   if (!user) return { success: false as const, error: "User account not found." };
+  if (!canManageCredentials(session.user, user)) return { success: false as const, error: "You cannot manage this account." };
   if (!user.isActive) return { success: false as const, error: "Activate this account before generating a setup link." };
 
   const token = randomBytes(32).toString("base64url");

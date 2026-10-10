@@ -2,8 +2,9 @@
 // Printable HTML report card (also used as PDF source)
 // Renders server-side; use window.print() or /api/report/[id] for PDF
 
-import { assignGrade, gradeBg, TERM_LABELS } from "@/types";
+import { gradeBg, TERM_LABELS } from "@/types";
 import type { Term } from "@/types";
+import { GRADING_SCALE, type GradeBand } from "@/lib/grading";
 
 interface SubjectResult {
   subjectName: string;
@@ -15,6 +16,7 @@ interface SubjectResult {
 }
 
 interface ReportCardProps {
+  grading?: GradeBand[];
   school: { name: string; address: string; motto?: string; logoUrl?: string };
   student: { name: string; studentId: string; className: string; gender: string; dateOfBirth: string; photoUrl?: string };
   session: string;
@@ -38,7 +40,7 @@ function scoreBg(total: number | null, max: number) {
 
 export default function ReportCard({
   school, student, session, term, results, summary,
-  formTeacherComment, principalComment, attendance, nextTermBegins, isLocked,
+  formTeacherComment, principalComment, attendance, nextTermBegins, isLocked, grading = GRADING_SCALE,
 }: ReportCardProps) {
   const totalMaxMarks = results.reduce((sum, r) => sum + r.maxTotal, 0);
 
@@ -138,12 +140,9 @@ export default function ReportCard({
       <div className="mb-6 p-3 bg-slate-50 rounded-xl border border-border">
         <p className="text-xs font-semibold text-ink mb-2">Grading Scale</p>
         <div className="flex flex-wrap gap-2 text-xs">
-          {[
-            ["A","75–100","Distinction"],["B","65–74","Credit"],["C","55–64","Merit"],
-            ["D","45–54","Pass"],["E","40–44","Weak Pass"],["F","0–39","Fail"],
-          ].map(([g,r,l])=>(
+          {grading.map(({ grade: g, min, max, remark: l }) => (
             <div key={g} className={`px-2 py-1 rounded border ${gradeBg(g)}`}>
-              <span className="font-bold">{g}</span> = {r} ({l})
+              <span className="font-bold">{g}</span> = {min}–{max} ({l})
             </div>
           ))}
         </div>

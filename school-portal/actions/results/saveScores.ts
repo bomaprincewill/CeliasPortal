@@ -13,6 +13,7 @@ import { headers } from "next/headers";
 import type { Term } from "@/types";
 import { assertClassAccess } from "@/lib/roles";
 import { hasExactSubjectAssignment } from "@/lib/authorization";
+import { validateScoreConfiguration } from "@/lib/settingsValidation";
 
 export interface ScoreRow {
   studentId: string;
@@ -51,6 +52,8 @@ export async function saveDraftScores(input: SaveScoresInput): Promise<SaveScore
   await assertClassAccess(session.user.role, classId);
 
   const maxTotal = maxCA1 + maxCA2 + maxCA3 + maxExam;
+  const configurationError = validateScoreConfiguration({ maxCA1, maxCA2, maxCA3, maxExam });
+  if (configurationError) return { success: false, message: configurationError, saved: 0, errors: [] };
 
   // Verify ownership
   if (session.user.role === "SUBJECT_TEACHER") {
@@ -70,6 +73,7 @@ export async function saveDraftScores(input: SaveScoresInput): Promise<SaveScore
   // Validate each row
   for (const row of rows) {
     const rowErrors: string[] = [];
+    if ([row.ca1, row.ca2, row.ca3, row.examScore].some(value => value !== null && !Number.isFinite(value))) rowErrors.push("Scores must be finite numbers.");
     if (row.ca1 !== null && (row.ca1 < 0 || row.ca1 > maxCA1))
       rowErrors.push(`CA1 must be 0–${maxCA1}`);
     if (row.ca2 !== null && (row.ca2 < 0 || row.ca2 > maxCA2))
@@ -98,7 +102,7 @@ export async function saveDraftScores(input: SaveScoresInput): Promise<SaveScore
   const [classSession, enrolledStudents] = await Promise.all([
     prisma.class.findFirst({ where: { id: classId, sessionId }, select: { id: true } }),
     prisma.student.findMany({
-      where: { id: { in: validRows.map(row => row.studentId) }, classId, isActive: true },
+      where: { id: { in: validRows.map(row => row.studentId) }, enrollments: { some: { classId, sessionId } } },
       select: { id: true },
     }),
   ]);
@@ -142,7 +146,9 @@ export async function saveDraftScores(input: SaveScoresInput): Promise<SaveScore
       const old = existingMap.get(row.studentId);
 
       // Don't overwrite LOCKED results
-      if (old?.status === "LOCKED") {
+      const protectedResult = await tx.result.findUnique({ where: { studentId_subjectId_sessionId_term: { studentId: row.studentId, subjectId, sessionId, term } }, select: { status: true } });
+      const protectedSheet = await tx.broadSheet.findFirst({ where: { studentId: row.studentId, classId, sessionId, term, isLocked: true }, select: { id: true } });
+      if (protectedResult?.status === "LOCKED" || protectedSheet) {
         validationErrors.push({ studentId: row.studentId, message: "Result is locked and cannot be edited." });
         continue;
       }
@@ -201,7 +207,7 @@ export async function saveDraftScores(input: SaveScoresInput): Promise<SaveScore
         },
       });
     }
-  });
+  }, { isolationLevel: "Serializable", maxWait: 10_000, timeout: 60_000 });
 
   revalidatePath(`/teacher/results/${classId}/${subjectId}`);
 

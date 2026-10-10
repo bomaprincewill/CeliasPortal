@@ -10,13 +10,15 @@ export default async function BroadSheetPage({ searchParams }: { searchParams: P
   if (!session || !["FORM_TEACHER","SUPER_ADMIN"].includes(session.user.role)) redirect("/teacher/dashboard");
 
   const classId = session.user.formClassId;
-  if (!classId && session.user.role !== "SUPER_ADMIN") {
+  if (!classId) {
     return <div className="p-8 text-muted">You are not assigned as a form teacher to any class.</div>;
   }
 
   const term      = (query.term ?? "FIRST") as Term;
+  if (!["FIRST", "SECOND", "THIRD"].includes(term)) return <div className="p-8 text-muted">Invalid term.</div>;
   const currentSess = await prisma.academicSession.findFirst({ where:{ isCurrent:true } });
   const sessionId = query.sessionId ?? currentSess?.id ?? "";
+  const selectedSession = await prisma.academicSession.findUnique({ where: { id: sessionId } });
 
   const [classRecord, subjects, results, broadSheetRows] = await Promise.all([
     prisma.class.findUnique({ where:{ id: classId! }, select:{ name:true, arm:true } }),
@@ -36,7 +38,7 @@ export default async function BroadSheetPage({ searchParams }: { searchParams: P
   ]);
 
   const students = await prisma.student.findMany({
-    where:{ classId: classId!, isActive:true },
+    where:{ enrollments: { some: { classId, sessionId } } },
     orderBy:[{ lastName:"asc" },{ firstName:"asc" }],
     select:{ id:true, studentId:true, firstName:true, lastName:true },
   });
@@ -71,7 +73,7 @@ export default async function BroadSheetPage({ searchParams }: { searchParams: P
     <BroadSheet
       classId={classId!}
       className={`${classRecord.name} ${classRecord.arm}`}
-      sessionName={currentSess?.name ?? sessionId}
+      sessionName={selectedSession?.name ?? sessionId}
       term={term}
       subjects={subjectCols}
       students={studentRows}

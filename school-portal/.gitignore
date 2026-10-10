@@ -3,3 +3,4 @@
 .next/
 node_modules/
 .dev-server.*.log
+private-imports/

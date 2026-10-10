@@ -17,7 +17,7 @@ const DEFAULT_GRADES: GradeBandInput[] = [
 
 async function requireAdmin() {
   const session = await getSession();
-  if (!session || !["SUPER_ADMIN", "ADMIN"].includes(session.user.role)) throw new Error("UNAUTHORIZED");
+  if (!session || session.user.role !== "SUPER_ADMIN") throw new Error("UNAUTHORIZED");
   return session;
 }
 

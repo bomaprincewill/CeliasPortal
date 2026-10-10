@@ -31,6 +31,8 @@ export default function StudentExamClient({ examId }: { examId: string }) {
       questions={exam.questions}
       showResultImmediately={exam.showResultImmediately}
       submissionId={exam.submissionId}
+      deadline={exam.deadline}
+      serverTime={exam.serverTime}
       onSubmit={(answers) => submitCBTExam({ examId: exam.id, submissionId: exam.submissionId, answers })}
     />
   );

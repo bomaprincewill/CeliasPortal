@@ -17,6 +17,9 @@
 **/*.log
 **/*.tsbuildinfo
 
+# One-time import handover files may contain temporary credentials.
+**/private-imports/
+
 # OS/editor files
 .DS_Store
 Thumbs.db

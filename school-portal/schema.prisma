@@ -354,7 +354,7 @@ model Student {
   firstName     String
   lastName      String
   middleName    String?
-  dateOfBirth   DateTime
+  dateOfBirth   DateTime? // collected later for historical result imports when unavailable
   gender        Gender
   address       String?
   bloodGroup    String?

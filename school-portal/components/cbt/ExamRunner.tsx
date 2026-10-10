@@ -10,6 +10,8 @@ interface Question {
   options?: Option[]; imageUrl?: string; wordLimit?: number;
 }
 interface ExamResult {
+  success?: boolean;
+  message?: string;
   submissionId: string; score: number; total: number; percentage: number; passed: boolean;
   resultReleased?: boolean;
   answers: { questionId:string; isCorrect:boolean|null; marksAwarded:number; correctAnswer?:string; yourAnswer?:string }[];
@@ -23,45 +25,72 @@ interface Props {
   instructions: string;
   questions:   Question[];
   submissionId?: string;
+  deadline: string;
+  serverTime: string;
   showResultImmediately: boolean;
   onSubmit:    (answers: Record<string,string>) => Promise<ExamResult>;
 }
 
-export default function ExamRunner({ examId, title, durationMins, passMark, instructions, questions, submissionId, showResultImmediately, onSubmit }: Props) {
+export default function ExamRunner({ examId, title, durationMins, passMark, instructions, questions, submissionId, showResultImmediately, onSubmit, deadline, serverTime }: Props) {
   const [phase, setPhase]       = useState<"intro"|"exam"|"result">("intro");
   const [current, setCurrent]   = useState(0);
-  const [answers, setAnswers]   = useState<Record<string,string>>({});
-  const [timeLeft, setTimeLeft] = useState(durationMins * 60);
+  const [answers, setAnswers]   = useState<Record<string,string>>(() => {
+    if (!submissionId) return {};
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(`cbt:${submissionId}`) ?? "{}");
+      if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
+      return Object.fromEntries(questions.filter(question => typeof saved[question.id] === "string").map(question => [question.id, saved[question.id]]));
+    } catch { return {}; }
+  });
+  const [clockOffset] = useState(() => Date.parse(serverTime) - Date.now());
+  const deadlineMs = Date.parse(deadline);
+  const remaining = () => Math.max(0, Math.ceil((deadlineMs - Date.now() - clockOffset) / 1000));
+  const [timeLeft, setTimeLeft] = useState(remaining);
   const [confirm, setConfirm]   = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult]     = useState<ExamResult | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const answersRef = useRef<Record<string, string>>(answers);
+  const submittingRef = useRef(false);
+  const autoSubmittedRef = useRef(false);
 
   const handleSubmit = useCallback(async (auto = false) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     clearInterval(intervalRef.current);
     setConfirm(false);
     setSubmitting(true);
     try {
-      const res = await onSubmit(answers);
+      const res = await onSubmit(answersRef.current);
+      if (res.success === false) throw new Error(res.message ?? "Submission was rejected.");
+      try { if (submissionId) sessionStorage.removeItem(`cbt:${submissionId}`); } catch { /* Storage may be disabled. */ }
       setResult(res);
       setPhase("result");
-    } catch { alert("Submission failed. Please try again."); }
-    finally { setSubmitting(false); }
-  }, [answers, onSubmit]);
+    } catch (error) { alert(error instanceof Error ? error.message : "Submission failed. Please try again."); }
+    finally { submittingRef.current = false; setSubmitting(false); }
+  }, [onSubmit, submissionId]);
 
   // Timer
   useEffect(() => {
-    if (phase !== "exam") return;
+    if (phase !== "exam" || submitting) return;
     intervalRef.current = setInterval(() => {
-      setTimeLeft(t => {
-        if (t <= 1) { clearInterval(intervalRef.current); void handleSubmit(true); return 0; }
-        return t - 1;
-      });
-    }, 1000);
+      const seconds = Math.max(0, Math.ceil((deadlineMs - Date.now() - clockOffset) / 1000));
+      setTimeLeft(seconds);
+      if (seconds === 0 && !autoSubmittedRef.current) {
+        autoSubmittedRef.current = true;
+        clearInterval(intervalRef.current);
+        void handleSubmit(true);
+      }
+    }, 250);
     return () => clearInterval(intervalRef.current);
-  }, [handleSubmit, phase]);
+  }, [handleSubmit, phase, deadlineMs, clockOffset, submitting]);
 
-  const setAnswer = (qId: string, val: string) => setAnswers(p => ({ ...p, [qId]: val }));
+  const setAnswer = (qId: string, val: string) => {
+    if (remaining() <= 0 || submittingRef.current) return;
+    answersRef.current = { ...answersRef.current, [qId]: val };
+    setAnswers(answersRef.current);
+    try { if (submissionId) sessionStorage.setItem(`cbt:${submissionId}`, JSON.stringify(answersRef.current)); } catch { /* Keep the exam usable when storage is disabled. */ }
+  };
 
   const fmt = (s: number) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
   const answered = Object.keys(answers).length;
@@ -95,7 +124,7 @@ export default function ExamRunner({ examId, title, durationMins, passMark, inst
           </div>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-700">
-          ⚠ Once started, the timer cannot be paused. Ensure you are ready and in a quiet environment.
+          The timer starts when this page loads and cannot be paused. Reloading keeps your answers and the original deadline when browser storage is available.
         </div>
         <button onClick={()=>setPhase("exam")} className="btn-primary w-full justify-center py-3 text-base">
           Start Exam →

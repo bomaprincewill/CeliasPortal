@@ -2,8 +2,9 @@
 import { useState } from "react";
 import { Download, Trophy, TrendingUp, TrendingDown, Search, Printer } from "lucide-react";
 import { cn } from "@/components/ui";
-import { assignGrade, gradeBg, TERM_LABELS } from "@/types";
+import { gradeBg, TERM_LABELS } from "@/types";
 import type { Term } from "@/types";
+import { toCsv } from "@/lib/csv";
 
 interface SubjectCol { id:string; name:string; code:string }
 interface StudentRow {
@@ -20,6 +21,10 @@ interface Props {
   isLocked:  boolean;
 }
 
+const COLUMN_WIDTHS = { rank: 48, registration: 136, name: 220, subject: 160, summary: 88 };
+const REGISTRATION_LEFT = COLUMN_WIDTHS.rank;
+const NAME_LEFT = REGISTRATION_LEFT + COLUMN_WIDTHS.registration;
+
 export default function BroadSheet({ classId, className, sessionName, term, subjects, students, isLocked }: Props) {
   const [search, setSearch] = useState("");
   const [highlight, setHighlight] = useState<string | null>(null);
@@ -33,6 +38,18 @@ export default function BroadSheet({ classId, className, sessionName, term, subj
     : "0";
 
   const handlePrint = () => window.print();
+  const handleExport = () => {
+    const rows = [
+      ["Registration", "Student", ...subjects.map(subject => subject.name), "Total", "Average", "Position"],
+      ...visible.map(row => [row.studentNo, row.name, ...subjects.map(subject => row.scores[subject.id]?.total ?? ""), row.cumulative, row.average, row.position]),
+    ];
+    const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `broadsheet-${classId}-${term}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const passCount  = students.filter(s=>s.average>=40).length;
   const passRate   = students.length > 0 ? Math.round(passCount/students.length*100) : 0;
@@ -61,8 +78,8 @@ export default function BroadSheet({ classId, className, sessionName, term, subj
           <button onClick={handlePrint} className="btn-secondary btn-sm gap-2 no-print">
             <Printer className="w-3.5 h-3.5"/> Print
           </button>
-          <button className="btn-primary btn-sm gap-2 no-print">
-            <Download className="w-3.5 h-3.5"/> Export Excel
+          <button onClick={handleExport} className="btn-primary btn-sm gap-2 no-print">
+            <Download className="w-3.5 h-3.5"/> Export CSV
           </button>
         </div>
       </div>
@@ -90,19 +107,29 @@ export default function BroadSheet({ classId, className, sessionName, term, subj
 
       {/* Broad sheet table */}
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs border-collapse">
+        <div className="relative isolate overflow-x-auto" role="region" aria-label="Student results broadsheet" tabIndex={0}>
+          <table
+            className="table-fixed text-xs border-separate border-spacing-0"
+            style={{ width: NAME_LEFT + COLUMN_WIDTHS.name + subjects.length * COLUMN_WIDTHS.subject + 3 * COLUMN_WIDTHS.summary }}
+          >
+            <colgroup>
+              <col style={{ width: COLUMN_WIDTHS.rank }} />
+              <col style={{ width: COLUMN_WIDTHS.registration }} />
+              <col style={{ width: COLUMN_WIDTHS.name }} />
+              {subjects.map(subject => <col key={subject.id} style={{ width: COLUMN_WIDTHS.subject }} />)}
+              <col span={3} style={{ width: COLUMN_WIDTHS.summary }} />
+            </colgroup>
             <thead>
               <tr className="bg-brand-950 text-white">
-                <th className="px-3 py-3 text-left sticky left-0 bg-brand-950 z-10 w-6">#</th>
-                <th className="px-3 py-3 text-left sticky left-6 bg-brand-950 z-10 min-w-[80px]">Reg. No.</th>
-                <th className="px-3 py-3 text-left sticky left-24 bg-brand-950 z-10 min-w-[160px]">Student Name</th>
+                <th className="px-3 py-3 text-left sm:sticky left-0 bg-brand-950 z-20 print:static">#</th>
+                <th className="px-3 py-3 text-left sm:sticky bg-brand-950 z-20 print:static" style={{ left: REGISTRATION_LEFT }}>Reg. No.</th>
+                <th className="px-3 py-3 text-left sm:sticky bg-brand-950 z-20 border-r border-brand-800 print:static" style={{ left: NAME_LEFT }}>Student Name</th>
                 {subjects.map(s => (
                   <th key={s.id}
                     className={cn("px-2 py-3 text-center min-w-[70px] cursor-pointer hover:bg-white/10 transition-colors", highlight===s.id && "bg-brand-700")}
                     onClick={()=>setHighlight(highlight===s.id?null:s.id)}>
                     <div className="font-bold">{s.code}</div>
-                    <div className="font-normal text-brand-300 text-xs whitespace-nowrap">{s.name}</div>
+                    <div className="font-normal text-brand-300 text-xs whitespace-normal break-words">{s.name}</div>
                   </th>
                 ))}
                 <th className="px-3 py-3 text-center min-w-[70px] bg-brand-800">Total</th>
@@ -115,17 +142,18 @@ export default function BroadSheet({ classId, className, sessionName, term, subj
                 <tr><td colSpan={subjects.length+6} className="px-4 py-8 text-center text-muted">No students found.</td></tr>
               )}
               {visible.map((row, i) => {
-                const grade = assignGrade(row.average);
                 const isTop = row.position === 1;
+                const rowBackground = isTop ? "bg-yellow-50" : i % 2 === 0 ? "bg-white" : "bg-slate-50";
+                const frozenCell = cn("sm:sticky z-10 border-b border-border group-hover:bg-slate-100 print:static", rowBackground);
                 return (
                   <tr key={row.studentId}
-                    className={cn("border-b border-border hover:bg-slate-50 transition-colors", isTop && "bg-yellow-50/50", i%2===0?"":"bg-slate-50/30")}>
-                    <td className="px-3 py-2.5 text-muted sticky left-0 bg-inherit">
+                    className={cn("group [&>td]:border-b [&>td]:border-border hover:bg-slate-100 transition-colors", rowBackground)}>
+                    <td className={cn("px-3 py-2.5 text-muted left-0", frozenCell)}>
                       {isTop && <Trophy className="w-3.5 h-3.5 text-yellow-500 inline"/>}
                       {!isTop && i+1}
                     </td>
-                    <td className="px-3 py-2.5 font-mono text-muted sticky left-6 bg-inherit">{row.studentNo}</td>
-                    <td className="px-3 py-2.5 font-medium text-ink sticky left-24 bg-inherit whitespace-nowrap">{row.name}</td>
+                    <td className={cn("px-3 py-2.5 font-mono text-muted whitespace-nowrap", frozenCell)} style={{ left: REGISTRATION_LEFT }}>{row.studentNo}</td>
+                    <td className={cn("px-3 py-2.5 font-medium text-ink whitespace-normal break-words border-r", frozenCell)} style={{ left: NAME_LEFT }}>{row.name}</td>
                     {subjects.map(s => {
                       const score = row.scores[s.id];
                       return (
@@ -157,7 +185,7 @@ export default function BroadSheet({ classId, className, sessionName, term, subj
             </tbody>
             <tfoot>
               <tr className="bg-slate-100 border-t-2 border-border">
-                <td colSpan={3} className="px-3 py-3 text-xs font-semibold text-muted">
+                <td colSpan={3} className="px-3 py-3 text-xs font-semibold text-muted sm:sticky left-0 z-10 bg-slate-100 border-r border-border print:static">
                   CLASS SUMMARY — {students.length} students
                 </td>
                 {subjects.map(s => {

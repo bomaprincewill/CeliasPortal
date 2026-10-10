@@ -9,23 +9,8 @@ export type ExamType = "TERMINAL" | "ENTRANCE" | "MOCK" | "CA";
 export type QuestionType = "MCQ" | "TRUE_FALSE" | "SHORT_ANSWER" | "ESSAY";
 export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGOUT" | "SUBMIT" | "APPROVE" | "LOCK" | "UNLOCK" | "UPLOAD";
 
-export interface GradeBand {
-  min: number; max: number;
-  grade: string; gradePoint: number; remark: string;
-}
-
-export const GRADING_SCALE: GradeBand[] = [
-  { min: 75, max: 100, grade: "A", gradePoint: 4.0, remark: "Distinction" },
-  { min: 65, max: 74,  grade: "B", gradePoint: 3.5, remark: "Credit"      },
-  { min: 55, max: 64,  grade: "C", gradePoint: 3.0, remark: "Merit"       },
-  { min: 45, max: 54,  grade: "D", gradePoint: 2.0, remark: "Pass"        },
-  { min: 40, max: 44,  grade: "E", gradePoint: 1.0, remark: "Weak Pass"   },
-  { min: 0,  max: 39,  grade: "F", gradePoint: 0.0, remark: "Fail"        },
-];
-
-export function assignGrade(total: number): GradeBand {
-  return GRADING_SCALE.find(b => total >= b.min && total <= b.max) ?? GRADING_SCALE[GRADING_SCALE.length - 1];
-}
+export { assignGrade, GRADING_SCALE } from "@/lib/grading";
+export type { GradeBand } from "@/lib/grading";
 
 export function gradeColor(grade: string): string {
   return { A:"text-emerald-600", B:"text-blue-600", C:"text-cyan-600", D:"text-yellow-600", E:"text-orange-500", F:"text-red-600" }[grade] ?? "text-muted";

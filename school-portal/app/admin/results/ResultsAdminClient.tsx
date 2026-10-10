@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
-import { Lock, CheckCircle2, Clock, AlertTriangle, ChevronDown, BarChart2 } from "lucide-react";
+import Link from "next/link";
+import { Lock, CheckCircle2, Clock, AlertTriangle, ChevronDown, BarChart2, Upload } from "lucide-react";
 import { Toast, ConfirmModal } from "@/components/ui";
 import { lockResult } from "@/actions/results/compileResults";
 import { TERM_LABELS } from "@/types";
@@ -13,12 +14,13 @@ const STATUS_CONFIG = {
   LOCKED:    { label:"Locked",    color:"badge-green",  icon:Lock },
 };
 
-export default function ResultsAdminClient({ classes, subjects, resultGroups, sessionId, sessionName, initialTerm, initialClassId }: {
+export default function ResultsAdminClient({ classes, subjects, resultGroups, sessionId, sessionName, initialTerm, initialClassId, uploadMode = false }: {
   classes: any[]; subjects: any[]; resultGroups: any[];
-  sessionId: string; sessionName: string; initialTerm: string; initialClassId: string;
+  sessionId: string; sessionName: string; initialTerm: string; initialClassId: string; uploadMode?: boolean;
 }) {
   const [term, setTerm]         = useState<Term>(initialTerm as Term);
   const [classId, setClassId]   = useState(initialClassId);
+  const [subjectId, setSubjectId] = useState("");
   const [toast, setToast]       = useState<any>(null);
   const [lockTarget, setLock]   = useState<any>(null);
   const [isPending, start]      = useTransition();
@@ -64,8 +66,8 @@ export default function ResultsAdminClient({ classes, subjects, resultGroups, se
       {toast && <Toast {...toast} onClose={() => setToast(null)}/>}
 
       <div className="page-header">
-        <h1 className="page-title flex items-center gap-2"><BarChart2 className="w-6 h-6 text-brand-600"/>Results Overview</h1>
-        <p className="page-subtitle">{sessionName} — Manage and approve subject scores</p>
+        <h1 className="page-title flex items-center gap-2"><BarChart2 className="w-6 h-6 text-brand-600"/>{uploadMode ? "Bulk Upload Results" : "Results Overview"}</h1>
+        <p className="page-subtitle">{uploadMode ? "Choose the session, class, and any subject to open the Excel broadsheet uploader." : `${sessionName} — Manage and approve subject scores`}</p>
       </div>
 
       {/* Filters */}
@@ -83,6 +85,23 @@ export default function ResultsAdminClient({ classes, subjects, resultGroups, se
           </select>
           <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none"/>
         </div>
+        <div className="relative w-full sm:w-auto">
+          <select value={subjectId} onChange={e => setSubjectId(e.target.value)} className="input appearance-none pr-8 sm:min-w-52">
+            <option value="">Select a subject to upload</option>
+            {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none"/>
+        </div>
+        {classId && subjectId ? (
+          <Link
+            href={`/teacher/results/${classId}/${subjectId}?term=${term}&sessionId=${sessionId}`}
+            className="btn-primary gap-2"
+          >
+            <Upload className="h-4 w-4"/> Upload scores
+          </Link>
+        ) : (
+          <span className="btn-secondary cursor-not-allowed opacity-60">Select class and subject</span>
+        )}
       </div>
 
       {/* Status summary */}

@@ -21,6 +21,7 @@ import { saveDraftScores } from "@/actions/results/saveScores";
 import { submitResultsForApproval } from "@/actions/results/compileResults";
 import ScoreUploader from "@/components/results/ScoreUploader";
 import type { Term } from "@/types";
+import { assignGrade, GRADING_SCALE, type GradeBand } from "@/lib/grading";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ interface CellError {
 type ScoreField = "ca1" | "ca2" | "ca3" | "examScore";
 
 export interface ResultInputGridProps {
+  grading?: GradeBand[];
   classId:      string;
   subjectId:    string;
   sessionId:    string;
@@ -97,13 +99,11 @@ function computeTotal(
   return { value: Math.min(total, max), display: isComplete ? String(total) : `${total}*`, isComplete };
 }
 
-function getGrade(total: number): { grade: string; color: string } {
-  if (total >= 75) return { grade: "A",  color: "text-emerald-600" };
-  if (total >= 65) return { grade: "B",  color: "text-blue-600"    };
-  if (total >= 55) return { grade: "C",  color: "text-cyan-600"    };
-  if (total >= 45) return { grade: "D",  color: "text-yellow-600"  };
-  if (total >= 40) return { grade: "E",  color: "text-orange-600"  };
-  return              { grade: "F",  color: "text-red-600"      };
+function getGrade(total: number, bands: GradeBand[]): { grade: string; color: string } {
+  if (!Number.isFinite(total) || total < 0 || total > 100) return { grade: "—", color: "text-red-600" };
+  const { grade } = assignGrade(total, bands);
+  const colors: Record<string, string> = { A:"text-emerald-600", B:"text-blue-600", C:"text-cyan-600", D:"text-yellow-600", E:"text-orange-600", F:"text-red-600" };
+  return { grade, color: colors[grade] ?? "text-ink" };
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -112,7 +112,7 @@ export default function ResultInputGrid({
   classId, subjectId, sessionId, term,
   className, subjectName, sessionName,
   maxCA1 = 10, maxCA2 = 10, maxCA3 = 10, maxExam = 70,
-  initialRows = [],
+  initialRows = [], grading = GRADING_SCALE,
 }: ResultInputGridProps) {
 
   const router = useRouter();
@@ -529,7 +529,7 @@ export default function ResultInputGrid({
                 // Find actual index in original rows array for state updates
                 const rowIdx = rows.findIndex((r) => r.studentId === row.studentId);
                 const { value: totalValue, display: totalDisplay } = computeTotal(row, maxCA1, maxCA2, maxCA3, maxExam);
-                const gradeInfo = totalValue !== null ? getGrade(totalValue) : null;
+                const gradeInfo = totalValue !== null ? getGrade(totalValue, grading) : null;
                 const rowHasError = errors.some((e) => e.studentId === row.studentId);
 
                 return (

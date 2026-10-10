@@ -137,7 +137,7 @@ export default async function FormTeacherClassPage() {
                       {pupil.lastName}, {pupil.firstName}{pupil.middleName ? ` ${pupil.middleName}` : ""}
                     </td>
                     <td className="capitalize">{pupil.gender.toLowerCase()}</td>
-                    <td>{pupil.dateOfBirth.toLocaleDateString("en-NG")}</td>
+                    <td>{pupil.dateOfBirth?.toLocaleDateString("en-NG") ?? "Not recorded"}</td>
                   </tr>
                 ))}
                 {pupils.length === 0 && (

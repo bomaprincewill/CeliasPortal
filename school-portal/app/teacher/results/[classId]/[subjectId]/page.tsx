@@ -10,6 +10,8 @@ import { prisma } from "@/lib/prisma";
 import ResultInputGrid from "@/components/results/ResultInputGrid";
 import type { Term } from "@/types";
 import { hasExactSubjectAssignment } from "@/lib/authorization";
+import { assertClassAccess } from "@/lib/roles";
+import { configuredGradeBands } from "@/lib/grading";
 
 interface PageProps {
   params: Promise<{ classId: string; subjectId: string }>;
@@ -19,11 +21,17 @@ interface PageProps {
 export default async function ScoreEntryPage({ params, searchParams }: PageProps) {
   const session = await getSession();
   if (!session) redirect("/auth/signin");
+  if (!["SUBJECT_TEACHER", "FORM_TEACHER", "SUPER_ADMIN", "ADMIN", "NURSERY_HEAD", "PRIMARY_HEAD", "PRINCIPAL"].includes(session.user.role)) notFound();
 
   const { classId, subjectId } = await params;
   const query = await searchParams;
   const term      = (query.term      ?? "FIRST")  as Term;
-  const sessionId = query.sessionId  ?? "";
+  if (!["FIRST", "SECOND", "THIRD"].includes(term)) notFound();
+  await assertClassAccess(session.user.role, classId);
+  const classRecord = await prisma.class.findUnique({ where: { id: classId }, select: { id: true, name: true, arm: true, sessionId: true } });
+  if (!classRecord) notFound();
+  const sessionId = query.sessionId ?? classRecord.sessionId;
+  if (sessionId !== classRecord.sessionId) notFound();
 
   // Subject teacher ownership check (belt-and-suspenders: middleware already checked)
   if (session.user.role === "SUBJECT_TEACHER") {
@@ -35,14 +43,13 @@ export default async function ScoreEntryPage({ params, searchParams }: PageProps
   }
 
   // Fetch reference data
-  const [classRecord, subject, academicSession, students, existingResults] = await Promise.all([
-    prisma.class.findUnique({ where: { id: classId }, select: { id: true, name: true, arm: true } }),
+  const [subject, academicSession, students, existingResults, school, lockedSheets] = await Promise.all([
     prisma.subject.findUnique({ where: { id: subjectId }, select: { id: true, name: true, code: true } }),
     sessionId
       ? prisma.academicSession.findUnique({ where: { id: sessionId }, select: { id: true, name: true } })
       : prisma.academicSession.findFirst({ where: { isCurrent: true }, select: { id: true, name: true } }),
     prisma.student.findMany({
-      where:   { classId, isActive: true },
+      where:   { enrollments: { some: { classId, sessionId } } },
       select:  { id: true, studentId: true, firstName: true, lastName: true },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
@@ -55,16 +62,19 @@ export default async function ScoreEntryPage({ params, searchParams }: PageProps
         status: true,
       },
     }),
+    prisma.schoolSetting.findUnique({ where: { id: "default" }, include: { gradeBands: true } }),
+    prisma.broadSheet.findMany({ where: { classId, sessionId, term, isLocked: true }, select: { studentId: true } }),
   ]);
 
   if (!classRecord || !subject || !academicSession) notFound();
 
   const resultMap = new Map(existingResults.map((r) => [r.studentId, r]));
 
-  const maxCA1  = existingResults[0]?.maxCA1  ?? 10;
-  const maxCA2  = existingResults[0]?.maxCA2  ?? 10;
-  const maxCA3  = existingResults[0]?.maxCA3  ?? 10;
-  const maxExam = existingResults[0]?.maxExam ?? 70;
+  const maxCA1  = existingResults[0]?.maxCA1  ?? school?.maxCA1 ?? 10;
+  const maxCA2  = existingResults[0]?.maxCA2  ?? school?.maxCA2 ?? 10;
+  const maxCA3  = existingResults[0]?.maxCA3  ?? school?.maxCA3 ?? 10;
+  const maxExam = existingResults[0]?.maxExam ?? school?.maxExam ?? 70;
+  const lockedStudentIds = new Set(lockedSheets.map(sheet => sheet.studentId));
 
   const initialRows = students.map((s) => {
     const result = resultMap.get(s.id);
@@ -76,13 +86,14 @@ export default async function ScoreEntryPage({ params, searchParams }: PageProps
       ca2:       result?.ca2       ?? null,
       ca3:       result?.ca3       ?? null,
       examScore: result?.examScore ?? null,
-      isLocked:  result?.status === "LOCKED",
+      isLocked:  result?.status === "LOCKED" || lockedStudentIds.has(s.id),
     };
   });
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
       <ResultInputGrid
+        grading={configuredGradeBands(school?.gradeBands ?? [])}
         classId={classId}
         subjectId={subjectId}
         sessionId={academicSession.id}

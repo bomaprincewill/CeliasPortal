@@ -12,6 +12,8 @@ interface ExamData {
   questions: { id:string; type:any; text:string; marks:number; options?:{ id:string; text:string }[]; wordLimit?:number }[];
   applicantId: string;
   submissionId: string;
+  deadline: string;
+  serverTime: string;
 }
 
 export default function ApplicantExamPage({ params }: { params: Promise<{ examId: string }> }) {
@@ -69,6 +71,8 @@ export default function ApplicantExamPage({ params }: { params: Promise<{ examId
       questions={exam.questions}
       showResultImmediately={exam.showResultImmediately}
       submissionId={exam.submissionId}
+      deadline={exam.deadline}
+      serverTime={exam.serverTime}
       onSubmit={handleSubmit}
     />
   );

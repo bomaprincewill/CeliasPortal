@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
+import { assertClassAccess } from "@/lib/roles";
 import { studentIdFromApplication, validatePromotionSelection } from "@/lib/enrollmentValidation";
 
 async function requireAdmin() {
@@ -14,6 +15,7 @@ async function requireAdmin() {
 
 export async function enrollApplicant(userId: string, classId: string) {
   const session = await requireAdmin();
+  await assertClassAccess(session.user.role, classId);
   const [applicantUser, targetClass] = await Promise.all([
     prisma.user.findFirst({ where: { id: userId, role: "APPLICANT", isActive: true }, include: { applicant: true } }),
     prisma.class.findUnique({ where: { id: classId }, include: { _count: { select: { students: true } } } }),
@@ -44,6 +46,8 @@ export async function enrollApplicant(userId: string, classId: string) {
 
 export async function promoteStudents(input: { sourceClassId: string; targetClassId: string; studentIds: string[] }) {
   const session = await requireAdmin();
+  await assertClassAccess(session.user.role, input.sourceClassId);
+  await assertClassAccess(session.user.role, input.targetClassId);
   const selectionError = validatePromotionSelection(input);
   if (selectionError) return { success: false, error: selectionError };
   const [source, target, students] = await Promise.all([
@@ -74,6 +78,8 @@ export async function changeStudentLifecycle(studentId: string, status: "TRANSFE
   if (!reason.trim()) return { success: false, error: "A reason is required." };
   const student = await prisma.student.findUnique({ where: { id: studentId }, include: { class: true } });
   if (!student || student.status !== "ACTIVE") return { success: false, error: "Active student not found." };
+  if (!student.classId) return { success: false, error: "Student has no current class." };
+  await assertClassAccess(session.user.role, student.classId);
   await prisma.$transaction([
     prisma.student.update({ where: { id: studentId }, data: { status, isActive: false, classId: null } }),
     prisma.studentEnrollment.updateMany({ where: { studentId, status: "ACTIVE" }, data: { status, reason: reason.trim(), endedAt: new Date() } }),

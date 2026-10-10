@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+import { fileURLToPath } from "node:url";
+const workspaceRoot = fileURLToPath(new URL("../", import.meta.url));
 const allowedOrigins = (process.env.SERVER_ACTION_ALLOWED_ORIGINS ?? "localhost:3000")
   .split(",").map(value => value.trim()).filter(Boolean);
 const isProduction = process.env.NODE_ENV === "production";
@@ -13,7 +15,8 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
-  turbopack: { root: process.cwd() },
+  turbopack: { root: workspaceRoot },
+  outputFileTracingRoot: workspaceRoot,
   experimental: { serverActions: { allowedOrigins } },
   images: { remotePatterns: [] },
   serverExternalPackages: ["read-excel-file", "unzipper"],

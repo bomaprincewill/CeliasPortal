@@ -159,7 +159,7 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger }) {
       // On sign-in: merge user data into token
       if (user) {
         token.role               = user.role;
@@ -171,24 +171,21 @@ export const authOptions: NextAuthOptions = {
       }
 
       // On session update (e.g. teacher reassigned)
-      if (trigger === "update" && session) {
-        if (session.assignedSubjectIds) token.assignedSubjectIds = session.assignedSubjectIds;
-        if (session.assignedClassIds)   token.assignedClassIds   = session.assignedClassIds;
-        if (session.assignedSubjectClassPairs) token.assignedSubjectClassPairs = session.assignedSubjectClassPairs;
-        if (session.formClassId)        token.formClassId        = session.formClassId;
+      if (trigger === "update" && token.sub) {
+        const current = await loadSessionUser(token.sub);
+        if (!current?.isActive) return {} as typeof token;
+        Object.assign(token, sessionClaims(current));
       }
 
       return token;
     },
 
     async session({ session, token }) {
+      const current = token.sub ? await loadSessionUser(token.sub) : null;
+      if (!current?.isActive) return null as never;
+      const claims = sessionClaims(current);
       session.user.id                 = token.sub!;
-      session.user.role               = token.role;
-      session.user.formClassId        = token.formClassId;
-      session.user.assignedSubjectIds = token.assignedSubjectIds;
-      session.user.assignedClassIds   = token.assignedClassIds;
-      session.user.assignedSubjectClassPairs = token.assignedSubjectClassPairs;
-      session.user.childIds           = token.childIds;
+      Object.assign(session.user, claims, { name: current.name, email: current.email });
       return session;
     },
   },
@@ -224,6 +221,26 @@ export const authOptions: NextAuthOptions = {
 // ─── Server-side helpers ──────────────────────────────────────
 
 export const getSession = () => getServerSession(authOptions);
+
+async function loadSessionUser(id: string) {
+  return prisma.user.findUnique({ where: { id }, select: {
+    id: true, name: true, email: true, role: true, isActive: true,
+    teacher: { select: { formClassId: true, assignments: { select: { classId: true, subjectId: true } } } },
+    parent: { select: { children: { select: { studentId: true } } } },
+  } });
+}
+
+function sessionClaims(user: NonNullable<Awaited<ReturnType<typeof loadSessionUser>>>) {
+  const assignments = user.teacher?.assignments ?? [];
+  return {
+    role: user.role,
+    formClassId: user.teacher?.formClassId ?? undefined,
+    assignedSubjectIds: [...new Set(assignments.map(item => item.subjectId))],
+    assignedClassIds: [...new Set(assignments.map(item => item.classId))],
+    assignedSubjectClassPairs: assignments.map(item => `${item.classId}:${item.subjectId}`),
+    childIds: user.parent?.children.map(item => item.studentId) ?? [],
+  };
+}
 
 /** Throws if not authenticated or role check fails */
 export async function requireSession(allowedRoles?: Role[]) {

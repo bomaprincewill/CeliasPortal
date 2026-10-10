@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import ResultsAdminClient from "./ResultsAdminClient";
 import { sortClasses } from "@/lib/classSorting";
 
-export default async function AdminResultsPage({ searchParams }: { searchParams: Promise<{ classId?:string; term?:string; sessionId?:string }> }) {
+export default async function AdminResultsPage({ searchParams }: { searchParams: Promise<{ classId?:string; term?:string; sessionId?:string; upload?:string }> }) {
   const query = await searchParams;
   const session = await getSession();
   if (!session || !isAdminRole(session.user.role)) redirect("/auth/signin");
@@ -45,6 +45,7 @@ export default async function AdminResultsPage({ searchParams }: { searchParams:
       sessionName={currentSession?.name ?? ""}
       initialTerm={term}
       initialClassId={classId}
+      uploadMode={query.upload === "1"}
     />
   );
 }

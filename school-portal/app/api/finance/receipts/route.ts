@@ -23,8 +23,14 @@ export async function GET(req: NextRequest) {
   const session = await authorizedSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const search = req.nextUrl.searchParams.get("search")?.trim().slice(0, 160);
-  const rows = await prisma.receiptRecord.findMany({ where: search ? { studentName: { contains: search, mode: "insensitive" } } : undefined, orderBy: { createdAt: "desc" } });
-  return NextResponse.json(rows.map(output));
+  const cursor = Number(req.nextUrl.searchParams.get("cursor") ?? 0);
+  if (!Number.isSafeInteger(cursor) || cursor < 0) return invalid("Invalid receipt cursor.");
+  const rows = await prisma.receiptRecord.findMany({
+    where: { ...(search ? { studentName: { contains: search, mode: "insensitive" as const } } : {}), ...(cursor ? { id: { lt: cursor } } : {}) },
+    orderBy: { id: "desc" }, take: 101,
+  });
+  const items = rows.slice(0, 100);
+  return NextResponse.json({ items: items.map(output), nextCursor: rows.length > 100 ? items.at(-1)!.id : null });
 }
 
 export async function POST(req: NextRequest) {

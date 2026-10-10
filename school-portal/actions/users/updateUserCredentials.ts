@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
+import { canManageCredentials } from "@/lib/accountPermissions";
 
 export type UpdateUserCredentialsInput = {
   userId: string;
@@ -37,6 +38,7 @@ export async function updateUserCredentials(input: UpdateUserCredentialsInput) {
     select: { id: true, name: true, email: true, role: true },
   });
   if (!existing) return { success: false, error: "User account not found." };
+  if (!canManageCredentials(session.user, existing)) return { success: false, error: "You cannot manage this account." };
 
   const duplicate = await prisma.user.findFirst({
     where: { email, id: { not: input.userId } },

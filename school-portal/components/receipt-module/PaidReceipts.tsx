@@ -72,17 +72,19 @@ const PaidReceipts = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
   const [selectedGrade, setSelectedGrade] = useState<string>('')
+  const [nextCursor, setNextCursor] = useState<number | null>(null)
 
   const goToOutstanding = () => {
     router.push('/finance/outstanding')
   }
 
-  const fetchReceipts = useCallback(async () => {
+  const fetchReceipts = useCallback(async (cursor?: number) => {
     setError('')
     setRefreshing(true)
 
     try {
-      const data = await receiptApi.list()
+      const page = await receiptApi.listPage('', cursor)
+      const data: Receipt[] = page.items
 
       const filteredReceipts = (data || []).filter(receipt => {
         const payments = Array.isArray(receipt.balance_payments)
@@ -98,7 +100,8 @@ const PaidReceipts = () => {
         return !hasBalanceEntries && balanceTotal <= 0
       })
 
-      setReceipts(filteredReceipts as Receipt[])
+      setReceipts(previous => cursor ? [...previous, ...filteredReceipts] : filteredReceipts)
+      setNextCursor(page.nextCursor)
     } catch (err: unknown) {
       console.error('Failed to load paid receipts:', err)
       setError('Unable to load paid receipts right now. Please try again.')
@@ -166,7 +169,7 @@ const PaidReceipts = () => {
             <Button
               variant='outline'
               className='w-full border-green-200 text-green-700 hover:bg-green-50 sm:w-auto'
-              onClick={fetchReceipts}
+              onClick={() => void fetchReceipts()}
               disabled={refreshing}
             >
               <RefreshCw className='w-4 h-4' />
@@ -210,7 +213,7 @@ const PaidReceipts = () => {
           <CardContent className='p-6'>
             <div className='flex items-center justify-between'>
               <div>
-                <p className='text-sm font-medium text-green-600 mb-1'>Total Amount</p>
+                <p className='text-sm font-medium text-green-600 mb-1'>Displayed Total Amount</p>
                 <p className='text-3xl font-bold text-green-700'>{formatCurrency(totalAmount)}</p>
               </div>
             </div>
@@ -241,7 +244,7 @@ const PaidReceipts = () => {
 
           {!hasReceipts ? (
             <p className='text-sm text-gray-600'>
-              There are no paid receipts at the moment.
+              No paid receipts in the loaded records.
             </p>
           ) : !hasFilteredReceipts ? (
             <p className='text-sm text-gray-600'>
@@ -282,6 +285,7 @@ const PaidReceipts = () => {
               </table>
             </div>
           )}
+          {nextCursor !== null && <Button className='mt-4' disabled={refreshing} onClick={() => void fetchReceipts(nextCursor)}>Load more receipts</Button>}
         </CardContent>
       </Card>
     </div>

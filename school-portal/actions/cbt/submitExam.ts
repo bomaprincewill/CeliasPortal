@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { headers } from "next/headers";
+import { examDeadline, attemptExpired, SUBMISSION_GRACE_MS } from "@/lib/examTiming";
 
 export interface SubmitExamInput {
   examId:      string;
@@ -61,7 +62,7 @@ export async function submitCBTExam(input: SubmitExamInput): Promise<SubmitExamR
   }
 
   const now = new Date();
-  if (now < exam.scheduledStart || now > exam.scheduledEnd) {
+  if (now < exam.scheduledStart || now.getTime() > exam.scheduledEnd.getTime() + SUBMISSION_GRACE_MS) {
     return { success: false, submissionId: "", score: 0, total: 0, percentage: 0, passed: false, message: "This exam is not currently available.", answers: [] };
   }
 
@@ -98,6 +99,9 @@ export async function submitCBTExam(input: SubmitExamInput): Promise<SubmitExamR
     ...(studentId ? { studentId } : { applicantId: applicantId! }),
   } });
   if (!reservedSubmission) return { success: false, submissionId: "", score: 0, total: 0, percentage: 0, passed: false, message: "This exam attempt is invalid or has already been submitted.", answers: [] };
+  if (attemptExpired(examDeadline(reservedSubmission.startedAt, exam.durationMinutes, exam.scheduledEnd), now)) {
+    return { success: false, submissionId: "", score: 0, total: 0, percentage: 0, passed: false, message: "The time allowed for this attempt has expired.", answers: [] };
+  }
 
   // Grade each question
   let rawScore    = 0;
@@ -168,7 +172,7 @@ export async function submitCBTExam(input: SubmitExamInput): Promise<SubmitExamR
         submittedAt: new Date(),
         rawScore, totalMarks, percentage, isPassed: needsManualGrading ? null : passed,
         ipAddress: ip, userAgent: ua,
-        timeUsedSeconds: null,
+        timeUsedSeconds: Math.max(0, Math.floor((now.getTime() - reservedSubmission.startedAt.getTime()) / 1000)),
         gradingStatus: needsManualGrading ? "PENDING_MANUAL" : "AUTO_GRADED",
         finalizedAt: needsManualGrading ? null : new Date(),
       },
@@ -200,7 +204,7 @@ export async function submitCBTExam(input: SubmitExamInput): Promise<SubmitExamR
     }
 
     return sub;
-  });
+  }, { maxWait: 10_000, timeout: 60_000 });
 
   await writeAuditLog({
     userId:      session?.user.id ?? null,
