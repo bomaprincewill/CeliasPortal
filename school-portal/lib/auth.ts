@@ -10,6 +10,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import type { Role } from "@/types";
+import { credentialTag, credentialsMatch } from "@/lib/sessionCredentials";
 
 const MAX_LOGIN_FAILURES = 5;
 const LOGIN_LOCK_MINUTES = 15;
@@ -44,6 +45,7 @@ declare module "next-auth" {
   interface User {
     id: string;
     role: Role;
+    credentialTag?: string;
     formClassId?: string;
     assignedSubjectIds?: string[];
     assignedClassIds?: string[];
@@ -55,6 +57,7 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     role: Role;
+    credentialTag?: string;
     formClassId?: string;
     assignedSubjectIds?: string[];
     assignedClassIds?: string[];
@@ -148,6 +151,7 @@ export const authOptions: NextAuthOptions = {
           name:  user.name,
           email: user.email,
           role:  user.role,
+          credentialTag: credentialTag(user.passwordHash),
           formClassId,
           assignedSubjectIds,
           assignedClassIds,
@@ -162,6 +166,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, trigger }) {
       // On sign-in: merge user data into token
       if (user) {
+        token.credentialTag      = user.credentialTag;
         token.role               = user.role;
         token.formClassId        = user.formClassId;
         token.assignedSubjectIds = user.assignedSubjectIds;
@@ -173,7 +178,7 @@ export const authOptions: NextAuthOptions = {
       // On session update (e.g. teacher reassigned)
       if (trigger === "update" && token.sub) {
         const current = await loadSessionUser(token.sub);
-        if (!current?.isActive) return {} as typeof token;
+        if (!current?.isActive || !credentialsMatch(token.credentialTag, current.passwordHash)) return {} as typeof token;
         Object.assign(token, sessionClaims(current));
       }
 
@@ -182,7 +187,7 @@ export const authOptions: NextAuthOptions = {
 
     async session({ session, token }) {
       const current = token.sub ? await loadSessionUser(token.sub) : null;
-      if (!current?.isActive) return null as never;
+      if (!current?.isActive || !credentialsMatch(token.credentialTag, current.passwordHash)) return null as never;
       const claims = sessionClaims(current);
       session.user.id                 = token.sub!;
       Object.assign(session.user, claims, { name: current.name, email: current.email });
@@ -224,7 +229,7 @@ export const getSession = () => getServerSession(authOptions);
 
 async function loadSessionUser(id: string) {
   return prisma.user.findUnique({ where: { id }, select: {
-    id: true, name: true, email: true, role: true, isActive: true,
+    id: true, name: true, email: true, role: true, isActive: true, passwordHash: true,
     teacher: { select: { formClassId: true, assignments: { select: { classId: true, subjectId: true } } } },
     parent: { select: { children: { select: { studentId: true } } } },
   } });

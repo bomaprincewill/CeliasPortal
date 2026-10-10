@@ -154,11 +154,8 @@ export async function proxy(request: NextRequest) {
 
   // ── Public route ────────────────────────────────────────────
   if (rule.roles === "*") {
-    // If user is already logged in and hitting /auth/signin, redirect to dashboard
-    if (pathname.startsWith("/auth/signin") && token) {
-      const home = ROLE_HOME[token.role] ?? "/dashboard";
-      return NextResponse.redirect(new URL(home, request.url));
-    }
+    // A cookie alone cannot prove the session is still valid after a password
+    // reset. Always allow sign-in so revoked sessions cannot cause a loop.
     return NextResponse.next();
   }
 

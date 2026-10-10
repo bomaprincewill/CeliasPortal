@@ -44,6 +44,13 @@ npm run db:seed
 
 ## Production checklist
 
+See [LAUNCH_READINESS.md](LAUNCH_READINESS.md) for the verified deployment,
+remaining school-data requirements, and the email DNS handover.
+
+Run `npm run launch:check` from the workspace root for read-only production
+configuration and database checks. Use `npm run launch:check -- --data-only`
+when checking the configured database from a local development environment.
+
 - Set production database and authentication variables in the hosting provider.
 - Apply migrations with `npm run db:deploy`; do not use `db:push` in production.
 - Configure a verified transactional email domain before sending password or applicant setup links.

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Eye, EyeOff, Loader2, LockKeyhole } from "lucide-react";
 import { changeOwnPassword } from "@/actions/auth/changeOwnPassword";
+import { signOut } from "next-auth/react";
 
 export default function ChangePasswordForm() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -20,7 +21,8 @@ export default function ChangePasswordForm() {
       const result = await changeOwnPassword(currentPassword, newPassword);
       if (!result.success) return setMessage({ type: "error", text: result.error });
       setCurrentPassword(""); setNewPassword(""); setConfirmation("");
-      setMessage({ type: "success", text: "Your password has been changed successfully." });
+      setMessage({ type: "success", text: "Password changed. Please sign in with your new password." });
+      await signOut({ callbackUrl: "/auth/signin" });
     });
   };
 

@@ -1,0 +1,21 @@
+name: Production health
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  public-site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check site availability, database readiness, and access protection
+        run: node school-portal/scripts/check-site.mjs https://celias-portal-school-portal.vercel.app
