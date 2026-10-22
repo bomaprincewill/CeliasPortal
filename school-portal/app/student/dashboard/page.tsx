@@ -8,7 +8,7 @@ import { StatCard } from "@/components/ui";
 export default async function StudentDashboard() {
   let context;
   try { context = await requireStudentProfile(); } catch { redirect("/auth/signin"); }
-  const { session, student } = context;
+  const { student } = context;
   const currentSession = student.class?.session ?? await prisma.academicSession.findFirst({ where: { isCurrent: true } });
   const [latest, attendance, upcomingExams] = await Promise.all([
     prisma.broadSheet.findFirst({ where: { studentId: student.id, sessionId: currentSession?.id ?? "" }, orderBy: { computedAt: "desc" } }),
@@ -18,7 +18,7 @@ export default async function StudentDashboard() {
   const present = attendance.find(item => item.status === "PRESENT")?._count.status ?? 0;
   const totalAttendance = attendance.reduce((sum, item) => sum + item._count.status, 0);
   return <div className="space-y-7">
-    <div><h1 className="page-title">Welcome, {session.user.name.split(" ")[0]}</h1><p className="page-subtitle">{student.class ? `${student.class.name} ${student.class.arm}` : "No current class"} · {student.studentId}</p></div>
+    <div><h1 className="page-title">Welcome, {student.lastName}</h1><p className="page-subtitle">{student.class ? `${student.class.name} ${student.class.arm}` : "No current class"} · {student.studentId}</p></div>
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard label="Latest average" value={latest ? `${latest.averageScore.toFixed(1)}%` : "—"} icon={<BarChart2 className="h-5 w-5"/>}/>
       <StatCard label="Class position" value={latest?.position ? `${latest.position}/${latest.outOf}` : "—"} icon={<GraduationCap className="h-5 w-5"/>}/>

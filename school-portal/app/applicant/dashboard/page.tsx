@@ -60,7 +60,7 @@ export default async function ApplicantDashboard() {
       {/* Header */}
       <div>
         <h1 className="font-display text-2xl font-bold text-ink">
-          Welcome, {applicant.firstName} {applicant.lastName}
+          Welcome, {applicant.lastName}
         </h1>
         <p className="text-muted text-sm mt-1">
           Application No: <span className="font-mono font-semibold text-ink">{applicant.applicationNo}</span>

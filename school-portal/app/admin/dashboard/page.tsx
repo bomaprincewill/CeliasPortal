@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ROLE_LABELS } from "@/types";
+import { lastNameForWelcome } from "@/lib/welcomeName";
 
 export default async function AdminDashboard() {
   const session = await getSession();
@@ -47,7 +48,7 @@ export default async function AdminDashboard() {
     level ? Promise.resolve(0) : prisma.applicant.count({ where: { status: "PENDING" } }),
   ]);
 
-  const welcomeName = session.user.name?.trim() || ROLE_LABELS[session.user.role];
+  const welcomeName = lastNameForWelcome(session.user.name, ROLE_LABELS[session.user.role]);
 
   const actionBadge: Record<string, string> = {
     LOGIN:"badge-gray", LOGOUT:"badge-gray", CREATE:"badge-green", UPDATE:"badge-blue",

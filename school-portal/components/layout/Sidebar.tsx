@@ -144,8 +144,8 @@ export default function Sidebar({ open = false, onClose }: { open?: boolean; onC
     )}>
       {/* Logo */}
       <div className="px-5 py-5 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <SchoolLogo />
+        <div className="flex items-center gap-1">
+          <SchoolLogo className="h-14 w-14" />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="font-display font-bold text-white text-base leading-none">Celias Portal</span>

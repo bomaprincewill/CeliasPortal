@@ -32,8 +32,8 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-white/95 px-4 backdrop-blur lg:hidden">
-          <div className="flex items-center gap-2.5">
-            <SchoolLogo className="h-10 w-10" />
+          <div className="flex items-center gap-1">
+            <SchoolLogo className="h-12 w-12" />
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-display font-bold text-ink">Celias Portal</span>
               <BetaBadge />

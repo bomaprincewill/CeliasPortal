@@ -5,6 +5,7 @@ import Link from "next/link";
 import { StatCard } from "@/components/ui";
 import { BarChart2, BookMarked, Users, CheckCircle2, Clock, Calendar } from "lucide-react";
 import { ROLE_LABELS } from "@/types";
+import { lastNameForWelcome } from "@/lib/welcomeName";
 import { compareClasses } from "@/lib/classSorting";
 
 export default async function TeacherDashboard() {
@@ -50,7 +51,7 @@ export default async function TeacherDashboard() {
     compareClasses(a.class, b.class) || a.subject.name.localeCompare(b.subject.name)
   );
 
-  const welcomeName = session.user.name?.trim() || ROLE_LABELS[session.user.role];
+  const welcomeName = lastNameForWelcome(session.user.name, ROLE_LABELS[session.user.role]);
 
   return (
     <div className="space-y-8">

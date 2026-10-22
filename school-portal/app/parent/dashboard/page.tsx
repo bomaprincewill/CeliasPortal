@@ -5,6 +5,7 @@ import Link from "next/link";
 import { GraduationCap, FileText, Calendar, BarChart2, ChevronRight } from "lucide-react";
 import { TERM_LABELS } from "@/types";
 import type { Term } from "@/types";
+import { lastNameForWelcome } from "@/lib/welcomeName";
 
 export default async function ParentDashboard() {
   const session = await getSession();
@@ -56,7 +57,7 @@ export default async function ParentDashboard() {
     <div className="space-y-8">
       <div>
         <h1 className="font-display text-2xl font-bold text-ink">
-          Welcome, {session.user.name?.split(" ")[0]}
+          Welcome, {lastNameForWelcome(session.user.name)}
         </h1>
         <p className="text-muted text-sm mt-1">
           {currentSession ? `Academic Session: ${currentSession.name}` : ""}
