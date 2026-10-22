@@ -3,13 +3,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
-  BookOpen, LayoutDashboard, HelpCircle, ClipboardList,
+  LayoutDashboard, HelpCircle, ClipboardList,
   Users, Settings, LogOut, GraduationCap, BookMarked,
   BarChart2, School, Calendar, FileText, Bell, Shield,
   UserCheck, Home, ChevronDown, ChevronRight, X, AlertTriangle, LockKeyhole,
 } from "lucide-react";
 import { cn } from "@/components/ui";
 import { useEffect, useMemo, useState } from "react";
+import SchoolLogo from "@/components/SchoolLogo";
 
 type NavItem = {
   label: string; href: string; icon: React.ElementType;
@@ -143,16 +144,14 @@ export default function Sidebar({ open = false, onClose }: { open?: boolean; onC
       {/* Logo */}
       <div className="px-5 py-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-brand-500 flex items-center justify-center flex-shrink-0">
-            <BookOpen className="w-4 h-4 text-white"/>
-          </div>
-          <button onClick={onClose} className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden" aria-label="Close navigation">
-            <X className="h-5 w-5" />
-          </button>
-          <div>
+          <SchoolLogo />
+          <div className="min-w-0">
             <span className="font-display font-bold text-white text-base block leading-none">Celias Portal</span>
             <span className="text-xs text-brand-400 mt-0.5 block">Management System</span>
           </div>
+          <button onClick={onClose} className="ml-auto shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden" aria-label="Close navigation">
+            <X className="h-5 w-5" />
+          </button>
         </div>
       </div>
 

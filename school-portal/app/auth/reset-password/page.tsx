@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { BookOpen, ArrowLeft, Mail, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, Mail, CheckCircle2, Loader2 } from "lucide-react";
 import { requestPasswordReset } from "@/actions/auth/passwordReset";
+import SchoolLogo from "@/components/SchoolLogo";
 
 export default function ResetPasswordPage() {
   const [email, setEmail] = useState("");
@@ -22,9 +23,7 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center p-6 bg-surface">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center">
-            <BookOpen className="w-4 h-4 text-white"/>
-          </div>
+          <SchoolLogo className="h-16 w-16" priority />
           <span className="font-display font-bold text-ink text-xl">Celias Portal</span>
         </div>
 

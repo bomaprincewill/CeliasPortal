@@ -11,6 +11,10 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "Celias Portal",
   description: "Complete school management: CBT, results, attendance, reports.",
+  icons: {
+    icon: "/celias-school-logo.png",
+    apple: "/celias-school-logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

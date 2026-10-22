@@ -2,8 +2,9 @@
 import { Suspense, useState } from "react";
 import { getSession, signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BookOpen, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
+import SchoolLogo from "@/components/SchoolLogo";
 
 function SignInForm() {
   const router      = useRouter();
@@ -60,9 +61,7 @@ function SignInForm() {
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
         <div className="w-full max-w-md">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center">
-              <BookOpen className="w-4 h-4 text-white"/>
-            </div>
+            <SchoolLogo className="h-20 w-20" priority />
             <span className="font-display font-bold text-ink text-xl">Celias Portal</span>
           </div>
 
