@@ -149,9 +149,8 @@ export default function Sidebar({ open = false, onClose }: { open?: boolean; onC
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="font-display font-bold text-white text-base leading-none">Celias Portal</span>
-              <BetaBadge />
+              <BetaBadge onDark />
             </div>
-            <span className="text-xs text-brand-400 mt-0.5 block">Management System</span>
           </div>
           <button onClick={onClose} className="ml-auto shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden" aria-label="Close navigation">
             <X className="h-5 w-5" />
