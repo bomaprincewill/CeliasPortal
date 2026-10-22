@@ -90,7 +90,7 @@ async function sendTransactionalEmail(message: TransactionalEmail) {
 }
 
 export async function sendApplicantCredentialsEmail(details: ApplicantCredentials) {
-  const schoolName = process.env.SCHOOL_NAME?.trim() || "School Portal";
+  const schoolName = process.env.SCHOOL_NAME?.trim() || "Celias Portal";
   const loginUrl = `${(process.env.NEXTAUTH_URL || "http://localhost:3000").replace(/\/$/, "")}/auth/signin`;
   return sendTransactionalEmail({
     to: details.to,
@@ -126,7 +126,7 @@ export async function sendApplicantCredentialsEmail(details: ApplicantCredential
 }
 
 export async function sendApplicantSetupEmail(details: ApplicantSetupDetails) {
-  const schoolName = process.env.SCHOOL_NAME?.trim() || "School Portal";
+  const schoolName = process.env.SCHOOL_NAME?.trim() || "Celias Portal";
   return sendTransactionalEmail({
     to: details.to,
     subject: `${schoolName} applicant login details`,
@@ -164,7 +164,7 @@ export async function sendApplicantSetupEmail(details: ApplicantSetupDetails) {
 }
 
 export async function sendPasswordResetEmail(details: { to: string; name: string; token: string }) {
-  const schoolName = process.env.SCHOOL_NAME?.trim() || "School Portal";
+  const schoolName = process.env.SCHOOL_NAME?.trim() || "Celias Portal";
   const resetUrl = `${(process.env.NEXTAUTH_URL || "http://localhost:3000").replace(/\/$/, "")}/auth/reset-password/${encodeURIComponent(details.token)}`;
   return sendTransactionalEmail({
     to: details.to,

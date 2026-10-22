@@ -113,7 +113,7 @@ export default async function ParentReportPage({
 
       <ReportCard
         school={{
-          name:    school?.name ?? "School Portal",
+          name:    school?.name ?? "Celias Portal",
           address: school?.address ?? "",
           motto:   school?.motto ?? undefined,
         }}

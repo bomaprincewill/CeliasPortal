@@ -79,7 +79,7 @@ export const authOptions: NextAuthOptions = {
 
   providers: [
     CredentialsProvider({
-      name: "School Portal",
+      name: "Celias Portal",
       credentials: {
         email:    { label: "Email or student login", type: "text" },
         password: { label: "Password", type: "password" },

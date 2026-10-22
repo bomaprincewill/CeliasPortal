@@ -150,7 +150,7 @@ export default function Sidebar({ open = false, onClose }: { open?: boolean; onC
             <X className="h-5 w-5" />
           </button>
           <div>
-            <span className="font-display font-bold text-white text-base block leading-none">SchoolPortal</span>
+            <span className="font-display font-bold text-white text-base block leading-none">Celias Portal</span>
             <span className="text-xs text-brand-400 mt-0.5 block">Management System</span>
           </div>
         </div>

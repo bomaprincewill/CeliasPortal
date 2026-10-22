@@ -9,7 +9,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "SchoolPortal — School Management System",
+  title: "Celias Portal",
   description: "Complete school management: CBT, results, attendance, reports.",
 };
 

@@ -55,43 +55,15 @@ function SignInForm() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left brand panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-brand-950 flex-col justify-between p-12">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-500 flex items-center justify-center">
-            <BookOpen className="w-5 h-5 text-white"/>
-          </div>
-          <span className="font-display font-bold text-white text-xl">SchoolPortal</span>
-        </div>
-        <div>
-          <h1 className="font-display text-5xl font-bold text-white leading-tight mb-6">
-            Manage your school.<br/>
-            <span className="text-brand-400">All in one place.</span>
-          </h1>
-          <p className="text-slate-400 text-lg leading-relaxed max-w-md">
-            CBT exams, result processing, attendance tracking, parent reports — built for Nigerian primary & secondary schools.
-          </p>
-          <div className="mt-10 grid grid-cols-2 gap-4">
-            {[["CBT Engine","Terminal & entrance exams"],["Result RBAC","5-role access control"],["Auto-Compile","Rankings & grades"],["PDF Reports","Printable report cards"]].map(([t,d])=>(
-              <div key={t} className="bg-white/5 rounded-xl p-4 border border-white/10">
-                <div className="font-display text-sm font-bold text-brand-300">{t}</div>
-                <div className="text-slate-400 text-xs mt-1">{d}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <p className="text-slate-600 text-xs">© 2025 SchoolPortal. All rights reserved.</p>
-      </div>
-
-      {/* Right form panel */}
+    <div className="min-h-screen flex bg-surface">
+      {/* Sign-in form */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
         <div className="w-full max-w-md">
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
+          <div className="flex items-center gap-3 mb-8">
             <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center">
               <BookOpen className="w-4 h-4 text-white"/>
             </div>
-            <span className="font-display font-bold text-ink text-xl">SchoolPortal</span>
+            <span className="font-display font-bold text-ink text-xl">Celias Portal</span>
           </div>
 
           <div className="page-header">

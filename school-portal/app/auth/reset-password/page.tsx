@@ -25,7 +25,7 @@ export default function ResetPasswordPage() {
           <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center">
             <BookOpen className="w-4 h-4 text-white"/>
           </div>
-          <span className="font-display font-bold text-ink text-xl">SchoolPortal</span>
+          <span className="font-display font-bold text-ink text-xl">Celias Portal</span>
         </div>
 
         {!sent ? (
