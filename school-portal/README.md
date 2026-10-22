@@ -51,6 +51,36 @@ Run `npm run launch:check` from the workspace root for read-only production
 configuration and database checks. Use `npm run launch:check -- --data-only`
 when checking the configured database from a local development environment.
 
+## Student roster accounts
+
+The 2026/2027 pupil roster and reviewed identity matches are stored locally in
+`private-imports/`, which is excluded from Git. From `school-portal`, run:
+
+```powershell
+node --import tsx scripts/setup-roster-accounts.ts --dry-run
+node --import tsx scripts/setup-roster-accounts.ts --execute
+node --import tsx scripts/setup-roster-accounts.ts --verify
+```
+
+The setup retains admission numbers for matched result records, allocates new
+`CIS2026/NNNN` numbers for new pupils, and applies the roster's current class
+placements. Historical results and enrollments are preserved. New accounts get
+unique passwords; existing passwords remain unchanged. The private handover is
+`private-imports/student-login-details-2026-2027.txt`. Students can change their
+password through **Account security**. Once a completed handover exists, rerunning
+the script verifies those accounts instead of creating duplicates or resetting
+passwords.
+
+Roster login names use `first.last@celias-portal`, with a numeric suffix only
+when needed to keep names unique. These are portal login identifiers. To preview
+or apply the same format to an existing private handover, run
+`node --import tsx scripts/shorten-student-logins.ts --dry-run` or
+`node --import tsx scripts/shorten-student-logins.ts --execute`. This updates the
+configured database and preserves passwords. Run the roster setup command with
+`--verify` afterward to refresh the private text handover.
+
+## Production configuration
+
 - Set production database and authentication variables in the hosting provider.
 - Apply migrations with `npm run db:deploy`; do not use `db:push` in production.
 - Configure a verified transactional email domain before sending password or applicant setup links.
