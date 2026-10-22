@@ -73,7 +73,7 @@ function SignInForm() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="form-group">
               <label className="label" htmlFor="login">Email or student login</label>
-              <input id="login" type="text" inputMode="email" autoComplete="username" autoCapitalize="none" spellCheck={false} value={email} onChange={e=>setEmail(e.target.value)} className="input" placeholder="name@celias-portal" required/>
+              <input id="login" type="text" inputMode="email" autoComplete="username" autoCapitalize="none" spellCheck={false} value={email} onChange={e=>setEmail(e.target.value)} className="input" placeholder="name@celiasportal.com" required/>
             </div>
               <div className="form-group">
                 <div className="flex items-center justify-between"><label className="label">Password</label><Link href="/auth/reset-password" className="text-xs font-medium text-brand-700 hover:text-brand-900">Forgot password?</Link></div>

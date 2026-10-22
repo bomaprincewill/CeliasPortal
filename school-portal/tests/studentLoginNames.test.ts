@@ -14,10 +14,10 @@ test("avoids duplicate names and existing non-roster logins without changing the
     { userId: "b", fullName: "ADAM JOHN RILEY", admissionNumber: "CIS2026/0002" },
     { userId: "a", fullName: "ADAM JAMES RILEY", admissionNumber: "CIS2026/0001" },
   ];
-  const result = buildStudentLogins(pupils, ["ADAM.RILEY@CELIAS-PORTAL"]);
-  assert.equal(result.get("a"), "adam.riley2@celias-portal");
-  assert.equal(result.get("b"), "adam.riley3@celias-portal");
-  assert.deepEqual([...result], [...buildStudentLogins([...pupils].reverse(), ["ADAM.RILEY@CELIAS-PORTAL"])]);
+  const result = buildStudentLogins(pupils, ["ADAM.RILEY@CELIASPORTAL.COM"]);
+  assert.equal(result.get("a"), "adam.riley2@celiasportal.com");
+  assert.equal(result.get("b"), "adam.riley3@celiasportal.com");
+  assert.deepEqual([...result], [...buildStudentLogins([...pupils].reverse(), ["ADAM.RILEY@CELIASPORTAL.COM"])]);
 });
 test("rejects repeated account identities", () => {
   const pupil = { userId: "a", fullName: "ALICE MORGAN", admissionNumber: "CIS2026/0001" };

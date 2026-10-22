@@ -71,7 +71,7 @@ password through **Account security**. Once a completed handover exists, rerunni
 the script verifies those accounts instead of creating duplicates or resetting
 passwords.
 
-Roster login names use `first.last@celias-portal`, with a numeric suffix only
+Roster login names use `first.last@celiasportal.com`, with a numeric suffix only
 when needed to keep names unique. These are portal login identifiers. To preview
 or apply the same format to an existing private handover, run
 `node --import tsx scripts/shorten-student-logins.ts --dry-run` or

@@ -11,6 +11,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { allocateAdmissionNumbers, matchRoster, pupilName, rosterClass, type RosterPupil } from "../lib/studentAccountMatching";
 import { buildStudentLogins, studentLoginBase } from "../lib/studentLoginNames";
+import { PORTAL_LOGIN_DOMAIN } from "../lib/portalLoginDomain";
 
 loadEnvConfig(process.cwd());
 const db = new PrismaClient();
@@ -137,7 +138,7 @@ async function main() {
     const schoolClass = classPlans.get(pupil.sourceClass)!;
     return { fullName: pupil.fullName, sourceClass: pupil.sourceClass, sourceNumber: pupil.sourceNumber, gender: pupil.gender as Gender,
       studentId: existing?.id ?? randomUUID(), admissionNumber, classId: schoolClass.id, className: schoolClass.name, classArm: schoolClass.arm,
-      userId: existing?.userId ?? randomUUID(), login: existing?.user?.email ?? `${studentLoginBase(pupil.fullName)}@celias-portal`,
+      userId: existing?.userId ?? randomUUID(), login: existing?.user?.email ?? `${studentLoginBase(pupil.fullName)}@${PORTAL_LOGIN_DOMAIN}`,
       initialPassword: null, passwordHash: null, newStudent: !existing, newAccount: !existing?.userId,
       matchMethod: existing ? pupil.method : "NEW_ADMISSION", matchReason: decisions.get(pupil.fullName)?.reason ?? (existing ? pupil.method : "No confirmed existing pupil; new admission authorized by user"),
       previousName: existing ? pupilName(existing) : null };

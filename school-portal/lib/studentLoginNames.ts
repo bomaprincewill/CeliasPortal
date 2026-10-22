@@ -1,3 +1,5 @@
+import { PORTAL_LOGIN_DOMAIN } from "./portalLoginDomain";
+
 export type StudentLoginName = { userId: string; fullName: string; admissionNumber: string };
 
 export function studentLoginBase(fullName: string) {
@@ -13,9 +15,9 @@ export function buildStudentLogins(pupils: StudentLoginName[], reservedLogins: s
   const logins = new Map<string, string>();
   for (const pupil of [...pupils].sort((a, b) => a.admissionNumber.localeCompare(b.admissionNumber))) {
     const base = studentLoginBase(pupil.fullName);
-    let login = `${base}@celias-portal`;
+    let login = `${base}@${PORTAL_LOGIN_DOMAIN}`;
     let suffix = 2;
-    while (occupied.has(login)) login = `${base}${suffix++}@celias-portal`;
+    while (occupied.has(login)) login = `${base}${suffix++}@${PORTAL_LOGIN_DOMAIN}`;
     occupied.add(login);
     logins.set(pupil.userId, login);
   }

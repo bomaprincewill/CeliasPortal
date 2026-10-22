@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { buildStudentLogins } from "../lib/studentLoginNames";
+import { PORTAL_LOGIN_DOMAIN } from "../lib/portalLoginDomain";
 
 loadEnvConfig(process.cwd());
 const db = new PrismaClient();
@@ -65,7 +66,7 @@ async function main() {
     if (user.email !== aliases.get(user.id) || user.passwordHash !== original.passwordHash) throw new Error("Final account verification failed.");
   }
   for (const row of rows) row.login = aliases.get(row.userId)!;
-  manifest.loginFormat = "name@celias-portal";
+  manifest.loginFormat = `name@${PORTAL_LOGIN_DOMAIN}`;
   manifest.loginsUpdatedAt = new Date().toISOString();
   save(path.basename(manifestPath), manifest);
   console.log(JSON.stringify({ databaseAccountsVerified: verified.length, passwordsPreserved: verified.length, handoverUpdated: true }));
