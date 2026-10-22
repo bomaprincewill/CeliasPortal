@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Mail, CheckCircle2, Loader2 } from "lucide-react";
 import { requestPasswordReset } from "@/actions/auth/passwordReset";
 import SchoolLogo from "@/components/SchoolLogo";
+import BetaBadge from "@/components/BetaBadge";
 
 export default function ResetPasswordPage() {
   const [email, setEmail] = useState("");
@@ -24,7 +25,10 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8">
           <SchoolLogo className="h-16 w-16" priority />
-          <span className="font-display font-bold text-ink text-xl">Celias Portal</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-display font-bold text-ink text-xl">Celias Portal</span>
+            <BetaBadge />
+          </div>
         </div>
 
         {!sent ? (

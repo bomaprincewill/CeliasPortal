@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import SchoolLogo from "@/components/SchoolLogo";
+import BetaBadge from "@/components/BetaBadge";
 
 function SignInForm() {
   const router      = useRouter();
@@ -62,7 +63,10 @@ function SignInForm() {
         <div className="w-full max-w-md">
           <div className="flex items-center gap-3 mb-8">
             <SchoolLogo className="h-20 w-20" priority />
-            <span className="font-display font-bold text-ink text-xl">Celias Portal</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-display font-bold text-ink text-xl">Celias Portal</span>
+              <BetaBadge />
+            </div>
           </div>
 
           <div className="page-header">
