@@ -30,8 +30,8 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-surface">
       <div className="w-full max-w-sm">
-        <div className="flex items-center gap-0.5 mb-8">
-          <SchoolLogo className="h-16 w-16" priority />
+        <div className="flex items-center gap-1.5 mb-8">
+          <SchoolLogo className="h-14 w-14" priority />
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-display font-bold text-ink text-xl">Celias Portal</span>
             <BetaBadge />

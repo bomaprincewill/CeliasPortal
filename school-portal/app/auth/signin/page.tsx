@@ -61,8 +61,8 @@ function SignInForm() {
       {/* Sign-in form */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
         <div className="w-full max-w-md">
-          <div className="flex items-center gap-0.5 mb-8">
-            <SchoolLogo className="h-20 w-20" priority />
+          <div className="flex items-center gap-1.5 mb-8">
+            <SchoolLogo className="h-16 w-16" priority />
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-display font-bold text-ink text-xl">Celias Portal</span>
               <BetaBadge />

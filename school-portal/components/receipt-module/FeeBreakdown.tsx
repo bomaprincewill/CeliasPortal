@@ -1390,13 +1390,13 @@ export default function FeeBreakdown() {
               <div ref={receiptRef}>
                 {/* School Header */}
                 <div className='text-center mb-6 border-b pb-4'>
-                  <div className='flex justify-center mb-0.5'>
+                  <div className='flex justify-center mb-1.5'>
                     <Image
                       src={Logo}
                       alt="Celia's school logo"
                       width={120}
                       height={115}
-                      className='h-auto w-28'
+                      className='h-auto w-24'
                     />
                   </div>
                   <h1 className='text-2xl font-bold text-gray-800'>
@@ -1594,13 +1594,13 @@ export default function FeeBreakdown() {
                 <div ref={modalDownloadRef} className='bg-white'>
                   {/* School Header */}
                   <div className='text-center mb-6 border-b pb-4'>
-                    <div className='flex justify-center mb-0.5'>
+                    <div className='flex justify-center mb-1.5'>
                       <Image
                         src={Logo}
                         alt="Celia's school logo"
                         width={120}
                         height={115}
-                        className='h-auto w-28'
+                        className='h-auto w-24'
                       />
                     </div>
                     <h1 className='text-2xl font-bold text-gray-800'>
