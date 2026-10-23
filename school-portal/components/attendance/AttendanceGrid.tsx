@@ -1,6 +1,9 @@
 "use client";
 import { useState, useTransition } from "react";
-import { Calendar, CheckCircle2, XCircle, Clock, AlertTriangle, Save, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, XCircle, Clock, AlertTriangle, Save, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { markAttendance } from "@/actions/attendance/markAttendance";
+import { TERM_LABELS, type Term } from "@/types";
 import { Toast } from "@/components/ui";
 import { cn } from "@/components/ui";
 import type { AttendanceStatus } from "@/types";
@@ -25,16 +28,18 @@ interface Props {
   classId:   string;
   className: string;
   sessionId: string;
-  term:      string;
+  term:      Term;
   initialDate: string;
   students:  { id:string; studentId:string; firstName:string; lastName:string }[];
   existing:  { studentId:string; status:AttendanceStatus; note:string; date:string }[];
 }
 
 export default function AttendanceGrid({ classId, className, sessionId, term, initialDate, students, existing }: Props) {
-  const [date, setDate]     = useState(initialDate);
+  const date = initialDate;
+  const router = useRouter();
   const [isPending, start]  = useTransition();
-  const [toast, setToast]   = useState<any>(null);
+  const [toast, setToast]   = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [dirty, setDirty] = useState(false);
   const [markAll, setMarkAll]= useState<AttendanceStatus | null>(null);
 
   const existingMap = new Map(existing.filter(e=>e.date===date).map(e=>[e.studentId, e]));
@@ -53,26 +58,38 @@ export default function AttendanceGrid({ classId, className, sessionId, term, in
   );
 
   const updateRow = (studentId: string, field: "status"|"note", value: string) => {
+    setDirty(true);
     setRows(prev => prev.map(r => r.studentId===studentId ? { ...r, [field]:value } : r));
   };
 
   const handleMarkAll = (status: AttendanceStatus) => {
+    setDirty(true);
     setRows(prev => prev.map(r => ({ ...r, status })));
     setMarkAll(status);
   };
 
   const handleSave = () => {
     start(async () => {
-      // In production: call server action markAttendance
-      await new Promise(r => setTimeout(r, 800));
-      setToast({ type:"success", message:`Attendance saved for ${date} (${rows.length} students).` });
+      try {
+        const result = await markAttendance({ classId, sessionId, term, date, rows: rows.map(({ studentId, status, note }) => ({ studentId, status, note })) });
+        setToast({ type: result.success ? "success" : "error", message: result.message });
+        if (result.success) { setDirty(false); router.refresh(); }
+      } catch {
+        setToast({ type: "error", message: "Attendance could not be saved. Please try again." });
+      }
     });
+  };
+
+  const navigate = (nextDate: string, nextTerm: Term = term) => {
+    if (!nextDate || isPending) return;
+    if (dirty && !window.confirm("Discard unsaved attendance changes?")) return;
+    start(() => router.push(`/teacher/attendance?date=${nextDate}&term=${nextTerm}`));
   };
 
   const shiftDate = (days: number) => {
     const d = new Date(date);
-    d.setDate(d.getDate() + days);
-    setDate(d.toISOString().split("T")[0]);
+    d.setUTCDate(d.getUTCDate() + days);
+    navigate(d.toISOString().split("T")[0]);
   };
 
   const counts = {
@@ -93,12 +110,15 @@ export default function AttendanceGrid({ classId, className, sessionId, term, in
           <p className="page-subtitle">{className}</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <select aria-label="Academic term" value={term} disabled={isPending} onChange={e => navigate(date, e.target.value as Term)} className="input">
+            {Object.entries(TERM_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
           <div className="flex items-center gap-2 card card-body py-2 px-3">
-            <button onClick={()=>shiftDate(-1)} className="btn-ghost btn-icon btn-sm"><ChevronLeft className="w-4 h-4"/></button>
-            <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="text-sm font-medium text-ink border-0 outline-none bg-transparent cursor-pointer"/>
-            <button onClick={()=>shiftDate(1)} className="btn-ghost btn-icon btn-sm"><ChevronRight className="w-4 h-4"/></button>
+            <button aria-label="Previous date" disabled={isPending} onClick={()=>shiftDate(-1)} className="btn-ghost btn-icon btn-sm"><ChevronLeft className="w-4 h-4"/></button>
+            <input aria-label="Attendance date" disabled={isPending} type="date" value={date} onChange={e=>navigate(e.target.value)} className="text-sm font-medium text-ink border-0 outline-none bg-transparent cursor-pointer"/>
+            <button aria-label="Next date" disabled={isPending} onClick={()=>shiftDate(1)} className="btn-ghost btn-icon btn-sm"><ChevronRight className="w-4 h-4"/></button>
           </div>
-          <button onClick={handleSave} disabled={isPending} className="btn-primary gap-2">
+          <button onClick={handleSave} disabled={isPending || rows.length === 0} className="btn-primary gap-2">
             {isPending ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
             Save
           </button>
@@ -106,18 +126,19 @@ export default function AttendanceGrid({ classId, className, sessionId, term, in
       </div>
 
       {/* Summary stats */}
+      <fieldset disabled={isPending} className="space-y-5">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {(["PRESENT","ABSENT","LATE","EXCUSED"] as AttendanceStatus[]).map(s => {
           const cfg = STATUS_CONFIG[s];
           const Icon = cfg.icon;
           return (
-            <div key={s} className={cn("card border rounded-xl p-3 text-center cursor-pointer transition-all", cfg.color, markAll===s?"ring-2 ring-offset-1 ring-current":"hover:shadow-sm")}
+            <button type="button" key={s} className={cn("card border rounded-xl p-3 text-center cursor-pointer transition-all", cfg.color, markAll===s?"ring-2 ring-offset-1 ring-current":"hover:shadow-sm")}
               onClick={()=>handleMarkAll(s)}>
               <div className="font-display text-xl font-bold">{counts[s]}</div>
               <div className="text-xs font-medium mt-0.5 flex items-center justify-center gap-1">
                 <Icon className="w-3 h-3"/>{cfg.label}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -156,6 +177,8 @@ export default function AttendanceGrid({ classId, className, sessionId, term, in
                 {(["PRESENT","ABSENT","LATE","EXCUSED"] as AttendanceStatus[]).map(s=>(
                   <td key={s} className="text-center">
                     <button
+                      aria-label={`${row.name}: ${STATUS_CONFIG[s].label}`}
+                      aria-pressed={row.status === s}
                       onClick={()=>updateRow(row.studentId,"status",s)}
                       className={cn(
                         "w-8 h-8 rounded-full border-2 flex items-center justify-center mx-auto text-xs font-bold transition-all",
@@ -167,6 +190,8 @@ export default function AttendanceGrid({ classId, className, sessionId, term, in
                 ))}
                 <td>
                   <input
+                    aria-label={`Note for ${row.name}`}
+                    maxLength={500}
                     value={row.note}
                     onChange={e=>updateRow(row.studentId,"note",e.target.value)}
                     placeholder="Optional note…"
@@ -187,6 +212,7 @@ export default function AttendanceGrid({ classId, className, sessionId, term, in
           </tfoot>
         </table>
       </div>
+      </fieldset>
     </div>
   );
 }

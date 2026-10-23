@@ -8,6 +8,8 @@ import { updateUserCredentials } from "@/actions/users/updateUserCredentials";
 import { bulkUploadUsers } from "@/actions/users/bulkUploadUsers";
 import { createFinanceStaff } from "@/actions/users/createFinanceStaff";
 import { generatePasswordSetupLink } from "@/actions/users/generatePasswordSetupLink";
+import { createSchoolUser, deactivateUser } from "@/actions/users/manageSchoolUsers";
+import type { SchoolUserInput } from "@/lib/userCreationValidation";
 
 const ROLE_BADGE: Record<string, string> = {
   SUPER_ADMIN:"badge-blue", FORM_TEACHER:"badge-green",
@@ -34,7 +36,7 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
   const emptyForm = {
     name:"", email:"", role:"SUBJECT_TEACHER", password:"", phone:"", classId:"", subjectIds:[] as string[],
     relationship:"PARENT", occupation:"", firstName:"", lastName:"", middleName:"", dateOfBirth:"", gender:"MALE",
-    applyingForClass:"", academicSession:academicSessions.find(s=>s.isCurrent)?.name ?? academicSessions[0]?.name ?? "", address:"",
+    applyingForClass:"", academicSession:academicSessions.find(s=>s.isCurrent)?.name ?? academicSessions[0]?.name ?? "", address:"", admissionNumber:"",
   };
   const [form, setForm2] = useState(emptyForm);
 
@@ -98,21 +100,27 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
         setToast({ type:"error", message:"Select a class for the student or pupil." });
         return;
       }
-      const newUser = {
-        id: `u_${Date.now()}`, ...form, isActive:true, createdAt: new Date().toISOString(),
-        ...(form.role === "STUDENT" ? { student: { class: { id:selectedClass.id, name:selectedClass.name, arm:selectedClass.arm, level:selectedClass.level } } } : {}),
-      };
-      setUsers(prev => [newUser, ...prev]);
-      setToast({ type:"success", message:"User created." });
-      setForm(false); setEdit(null); setForm2(emptyForm);
+      start(async () => {
+        try {
+          const user = await createSchoolUser({ ...form, role: form.role as SchoolUserInput["role"], gender: form.gender as "MALE" | "FEMALE" | "OTHER" });
+          setUsers(prev => [user, ...prev]);
+          setToast({ type: "success", message: "User created." });
+          setForm(false); setEdit(null); setForm2(emptyForm);
+        } catch (error) { setToast({ type: "error", message: error instanceof Error ? error.message : "Unable to create user." }); }
+      });
     }
   };
 
   const handleDelete = () => {
-    // In production: call server action deleteUser
-    setUsers(prev => prev.filter(u => u.id !== deleteUser.id));
-    setDelete(null);
-    setToast({ type:"success", message:"User deleted." });
+    if (!deleteUser || isPending) return;
+    start(async () => {
+      try {
+        await deactivateUser(deleteUser.id);
+        setUsers(prev => prev.map(user => user.id === deleteUser.id ? { ...user, isActive: false } : user));
+        setDelete(null);
+        setToast({ type: "success", message: "Login deactivated. School records retained." });
+      } catch (error) { setToast({ type: "error", message: error instanceof Error ? error.message : "Unable to deactivate user." }); }
+    });
   };
 
   const handleBulkUpload = (formData: FormData) => {
@@ -215,7 +223,7 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
                     <button onClick={()=>{setEdit(u);setForm2({...emptyForm,name:u.name,email:u.email,role:u.role,password:""});setShowPassword(false);setForm(true)}} className="btn-ghost btn-sm btn-icon">
                       <Edit2 className="w-3.5 h-3.5"/>
                     </button>
-                    <button onClick={()=>setDelete(u)} className="btn-ghost btn-sm btn-icon hover:text-danger">
+                    <button disabled={isPending || !u.isActive} aria-label={`Deactivate ${u.name}`} onClick={()=>setDelete(u)} className="btn-ghost btn-sm btn-icon hover:text-danger">
                       <Trash2 className="w-3.5 h-3.5"/>
                     </button>
                   </div>
@@ -248,7 +256,7 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
               )}
               <div className="form-group">
                 <label className="label">Role</label>
-                <select value={form.role} disabled={Boolean(editUser)} onChange={e=>setForm2(f=>({...f,role:e.target.value}))} className="input disabled:cursor-not-allowed disabled:bg-slate-100">
+                <select value={form.role} disabled={Boolean(editUser)} onChange={e=>setForm2(f=>({...f,role:e.target.value,classId:"",subjectIds:[]}))} className="input disabled:cursor-not-allowed disabled:bg-slate-100">
                   {Object.entries(ROLE_LABELS).map(([v,l])=><option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
@@ -288,6 +296,12 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
                 </>
               )}
               {form.role === "STUDENT" && (
+                <>
+                <div className="form-group"><label className="label">Admission number *</label><input value={form.admissionNumber} onChange={e=>setForm2(f=>({...f,admissionNumber:e.target.value}))} className="input"/></div>
+                <div className="form-group"><label className="label">First name *</label><input value={form.firstName} onChange={e=>setForm2(f=>({...f,firstName:e.target.value}))} className="input"/></div>
+                <div className="form-group"><label className="label">Last name *</label><input value={form.lastName} onChange={e=>setForm2(f=>({...f,lastName:e.target.value}))} className="input"/></div>
+                <div className="form-group"><label className="label">Gender *</label><select value={form.gender} onChange={e=>setForm2(f=>({...f,gender:e.target.value}))} className="input"><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option></select></div>
+                <div className="form-group"><label className="label">Date of birth</label><input type="date" value={form.dateOfBirth} onChange={e=>setForm2(f=>({...f,dateOfBirth:e.target.value}))} className="input"/></div>
                 <div className="form-group sm:col-span-2">
                   <label className="label">Class *</label>
                   <select value={form.classId} onChange={e=>setForm2(f=>({...f,classId:e.target.value}))} className="input" required>
@@ -296,6 +310,7 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
                   </select>
                   <p className="mt-1 text-xs text-muted">The learner will be added to this class.</p>
                 </div>
+                </>
               )}
               {form.role === "APPLICANT" && (
                 <>
@@ -309,9 +324,9 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
                   <div className="form-group sm:col-span-2"><label className="label">Address</label><textarea value={form.address} onChange={e=>setForm2(f=>({...f,address:e.target.value}))} className="input resize-none" rows={2}/></div>
                 </>
               )}
-              {(form.role==="FORM_TEACHER") && (
+              {(form.role==="FORM_TEACHER" || form.role==="SUBJECT_TEACHER") && (
                 <div className="form-group sm:col-span-2">
-                  <label className="label">Assigned Class (Form Teacher)</label>
+                  <label className="label">{form.role === "FORM_TEACHER" ? "Assigned form class *" : "Class for teaching assignments"}</label>
                   <select value={form.classId} onChange={e=>setForm2(f=>({...f,classId:e.target.value}))} className="input">
                     <option value="">— select class —</option>
                     {classes.map(c=><option key={c.id} value={c.id}>{c.name} {c.arm}</option>)}
@@ -375,9 +390,9 @@ export default function UsersClient({ initialUsers, classes, subjects, academicS
 
       {deleteUser && (
         <ConfirmModal
-          title="Delete User"
-          message={`Are you sure you want to delete "${deleteUser.name}"? This action cannot be undone.`}
-          confirmLabel="Delete"
+          title="Deactivate login"
+          message={`Deactivate login access for "${deleteUser.name}"? Their profile, enrollments, results, and other school records will be retained.`}
+          confirmLabel="Deactivate"
           danger
           onConfirm={handleDelete}
           onCancel={()=>setDelete(null)}

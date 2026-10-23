@@ -49,7 +49,7 @@ export default function ReportCard({
       {/* School header */}
       <div className="text-center border-b-4 border-brand-950 pb-4 mb-6">
         {school.logoUrl && (
-          <img src={school.logoUrl} alt="School Logo" className="w-20 h-20 object-contain mx-auto mb-2"/>
+          <img src={school.logoUrl} alt="School Logo" className="w-20 h-20 object-contain mx-auto mb-0.5"/>
         )}
         <h1 className="font-display text-2xl font-bold text-brand-950 uppercase tracking-wide">{school.name}</h1>
         <p className="text-sm text-muted mt-1">{school.address}</p>

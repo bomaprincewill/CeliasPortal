@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Input, Button, Select } from '@/components/receipt-module/ui'
-const Logo = '/celias-logo.png'
+const Logo = '/celias-portal-logo.png'
 import Image from 'next/image'
 import Link from 'next/link'
 import html2canvas from 'html2canvas-pro'
@@ -1390,7 +1390,7 @@ export default function FeeBreakdown() {
               <div ref={receiptRef}>
                 {/* School Header */}
                 <div className='text-center mb-6 border-b pb-4'>
-                  <div className='flex justify-center mb-1'>
+                  <div className='flex justify-center mb-0.5'>
                     <Image
                       src={Logo}
                       alt="Celia's school logo"
@@ -1594,7 +1594,7 @@ export default function FeeBreakdown() {
                 <div ref={modalDownloadRef} className='bg-white'>
                   {/* School Header */}
                   <div className='text-center mb-6 border-b pb-4'>
-                    <div className='flex justify-center mb-1'>
+                    <div className='flex justify-center mb-0.5'>
                       <Image
                         src={Logo}
                         alt="Celia's school logo"

@@ -21,6 +21,8 @@ import type { Term, ResultStatus } from "@/types";
 import { headers } from "next/headers";
 import { hasExactSubjectAssignment } from "@/lib/authorization";
 import { assignGrade, configuredGradeBands, type GradeBand } from "@/lib/grading";
+import { hasCompleteScores } from "@/lib/resultWorkflow";
+import { termSchema } from "@/lib/attendanceValidation";
 
 // ─── Grading Scale ────────────────────────────────────────────
 
@@ -60,6 +62,7 @@ export async function compileClassResults(
   // ── 1. Auth & Authorization ─────────────────────────────────
   const session = await requireSession(["SUPER_ADMIN", "ADMIN", "NURSERY_HEAD", "PRIMARY_HEAD", "PRINCIPAL", "FORM_TEACHER"]);
   const { classId, sessionId, term, rankOnly = false, lockAfter = false } = input;
+  if (!classId || !sessionId || !termSchema.safeParse(term).success) throw new Error("Select a valid class, session, and term.");
   await assertClassAccess(session.user.role, classId);
 
   // Form teacher can only compile their own class
@@ -83,6 +86,10 @@ export async function compileClassResults(
       stats: { studentsProcessed: 0, subjectsProcessed: 0, classAverage: 0, passRate: 0 },
       errors: ["Insufficient permissions to lock"],
     };
+  }
+
+  if (lockAfter && await prisma.result.count({ where: { classId, sessionId, term, status: { in: ["DRAFT", "SUBMITTED"] } } })) {
+    return { success: false, message: "Approve all entered results before compiling and locking the class.", stats: { studentsProcessed: 0, subjectsProcessed: 0, classAverage: 0, passRate: 0 }, errors: ["Unapproved results remain"] };
   }
 
   // ── 2. Fetch class and students ──────────────────────────────
@@ -119,7 +126,7 @@ export async function compileClassResults(
       classId,
       sessionId,
       term,
-      status: { in: ["SUBMITTED", "APPROVED", "LOCKED"] as ResultStatus[] },
+      status: { in: ["APPROVED", "LOCKED"] as ResultStatus[] },
     },
     include: {
       subject: { select: { name: true, code: true } },
@@ -129,10 +136,14 @@ export async function compileClassResults(
   if (results.length === 0) {
     return {
       success: false,
-      message: "No submitted results found. Teachers must submit scores first.",
+      message: "No approved results found. Submit and approve scores before compilation.",
       stats: { studentsProcessed: 0, subjectsProcessed: 0, classAverage: 0, passRate: 0 },
       errors: ["No submitted results"],
     };
+  }
+
+  if (results.some(result => !hasCompleteScores(result))) {
+    return { success: false, message: "Some results have incomplete scores. Complete and approve all required components before compilation.", stats: { studentsProcessed: 0, subjectsProcessed: 0, classAverage: 0, passRate: 0 }, errors: ["Incomplete scores"] };
   }
 
   // Get unique subjects
@@ -273,6 +284,10 @@ export async function compileClassResults(
   const ip = headersList.get("x-forwarded-for") ?? "unknown";
 
   await prisma.$transaction(async (tx) => {
+    if (lockAfter && await tx.result.count({ where: { classId, sessionId, term, status: { in: ["DRAFT", "SUBMITTED"] } } })) throw new Error("Results changed during compilation. Approve all entered scores and try again.");
+    const currentResults = await tx.result.findMany({ where: { classId, sessionId, term, status: { in: ["APPROVED", "LOCKED"] } }, select: { id: true, updatedAt: true } });
+    const versions = new Map(currentResults.map(row => [row.id, row.updatedAt.getTime()]));
+    if (currentResults.length !== results.length || results.some(row => versions.get(row.id) !== row.updatedAt.getTime())) throw new Error("Results changed during compilation. Please try again.");
     const lockedSheets = await tx.broadSheet.findMany({ where: { classId, sessionId, term, isLocked: true }, select: { studentId: true } });
     const currentlyLocked = new Set(lockedSheets.map(sheet => sheet.studentId));
     // Update individual result records
@@ -362,8 +377,9 @@ export async function compileClassResults(
     : undefined;
 
   // ── 10. Revalidate affected pages ────────────────────────────
-  revalidatePath(`/teacher/broadsheet/${classId}`);
-  revalidatePath(`/admin/results/${classId}`);
+  revalidatePath("/teacher/broadsheet");
+  revalidatePath("/admin/results");
+  revalidatePath("/student/report");
 
   return {
     success: true,
@@ -388,11 +404,12 @@ export async function lockResult(resultId: string): Promise<{ success: boolean; 
 
   const result = await prisma.result.findUnique({ where: { id: resultId } });
   if (!result) return { success: false, message: "Result not found." };
-  if (result.status === "LOCKED") return { success: false, message: "Already locked." };
+  if (result.status !== "APPROVED") return { success: false, message: "Only approved results can be locked." };
+  if (!hasCompleteScores(result) || result.grade === null || result.position === null) return { success: false, message: "Complete and compile results before locking." };
 
   await prisma.$transaction([
     prisma.result.update({
-      where: { id: resultId },
+      where: { id: resultId, status: "APPROVED" },
       data: { status: "LOCKED", lockedAt: new Date(), lockedById: session.user.id },
     }),
     prisma.auditLog.create({
@@ -438,7 +455,6 @@ export async function submitResultsForApproval(input: {
   // Find all DRAFT results for this batch
   const drafts = await prisma.result.findMany({
     where: { classId, subjectId, sessionId, term, status: "DRAFT" },
-    select: { id: true, studentId: true, total: true },
   });
 
   if (drafts.length === 0) {
@@ -446,7 +462,7 @@ export async function submitResultsForApproval(input: {
   }
 
   // Validate: all results must have at least an exam score
-  const incomplete = drafts.filter((r) => r.total === null || r.total === undefined);
+  const incomplete = drafts.filter((r) => !hasCompleteScores(r));
   if (incomplete.length > 0) {
     return {
       success: false,
@@ -475,5 +491,6 @@ export async function submitResultsForApproval(input: {
   ]);
 
   revalidatePath(`/teacher/results/${classId}/${subjectId}`);
+  revalidatePath("/admin/results");
   return { success: true, message: `${ids.length} results submitted for approval.`, count: ids.length };
 }

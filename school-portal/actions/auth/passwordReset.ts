@@ -5,12 +5,14 @@ import { createHash, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { writeAuditLog } from "@/lib/audit";
+import { administratorRecoveryMessage, usesAdministratorRecovery } from "@/lib/passwordRecovery";
 
 const genericMessage = "If an active account matches that email, a reset link has been sent.";
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export async function requestPasswordReset(emailInput: string) {
   const email = emailInput.trim().toLowerCase();
+  if (usesAdministratorRecovery(email)) return { success: true, message: administratorRecoveryMessage };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { success: false, error: "Enter a valid email address." };
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, isActive: true } });
   if (!user?.isActive) return { success: true, message: genericMessage };

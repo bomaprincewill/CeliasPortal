@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import { Plus, Trash2, Edit2, School, Users, BookMarked } from "lucide-react";
 import { Toast, ConfirmModal, EmptyState } from "@/components/ui";
 import { sortClasses } from "@/lib/classSorting";
+import { saveClass, deleteClass } from "@/actions/classes/manageClasses";
 
 export default function ClassesClient({ initialClasses, teachers, sessions, canCreateClass = true, learnerLabel = "students" }: { initialClasses: any[]; teachers: any[]; sessions: any[]; canCreateClass?: boolean; learnerLabel?: string }) {
   const [classes, setClasses] = useState(initialClasses);
@@ -10,7 +11,7 @@ export default function ClassesClient({ initialClasses, teachers, sessions, canC
   const [editItem, setEdit]   = useState<any>(null);
   const [delItem,  setDel]    = useState<any>(null);
   const [toast, setToast]     = useState<any>(null);
-  const [, start]             = useTransition();
+  const [pending, start] = useTransition();
 
   const [form, setForm2] = useState({ name:"", arm:"A", level:"primary", sessionId: sessions.find(s=>s.isCurrent)?.id ?? sessions[0]?.id ?? "", formTeacherId:"", capacity:"40" });
 
@@ -20,23 +21,25 @@ export default function ClassesClient({ initialClasses, teachers, sessions, canC
     if (!editItem && !canCreateClass) return;
     if (!form.name.trim()) { setToast({ type:"error", message:"Class name is required." }); return; }
     start(async () => {
-      // In production: call createClass / updateClass server action
-      if (editItem) {
-        setClasses(prev => sortClasses(prev.map(c => c.id === editItem.id ? { ...c, ...form } : c)));
-        setToast({ type:"success", message:"Class updated." });
-      } else {
-        const newClass = { id:`cls_${Date.now()}`, ...form, _count:{ students:0, subjectAssignments:0 } };
-        setClasses(prev => sortClasses([...prev, newClass]));
-        setToast({ type:"success", message:"Class created." });
-      }
-      setForm(false); setEdit(null); resetForm();
+      try {
+        const saved = await saveClass({ ...form, capacity: Number(form.capacity), level: form.level as "nursery" | "primary" | "secondary", id: editItem?.id });
+        setClasses(prev => sortClasses(editItem ? prev.map(c => c.id === saved.id ? saved : c) : [...prev, saved]));
+        setToast({ type: "success", message: editItem ? "Class updated." : "Class created." });
+        setForm(false); setEdit(null); resetForm();
+      } catch (error) { setToast({ type: "error", message: error instanceof Error ? error.message : "Unable to save class." }); }
     });
   };
 
   const handleDelete = () => {
-    setClasses(prev => prev.filter(c => c.id !== delItem.id));
-    setDel(null);
-    setToast({ type:"success", message:"Class deleted." });
+    if (!delItem || pending) return;
+    start(async () => {
+      try {
+        await deleteClass(delItem.id);
+        setClasses(prev => prev.filter(c => c.id !== delItem.id));
+        setDel(null);
+        setToast({ type: "success", message: "Class deleted." });
+      } catch (error) { setToast({ type: "error", message: error instanceof Error ? error.message : "Unable to delete class." }); }
+    });
   };
 
   const LEVELS = [
@@ -89,12 +92,12 @@ export default function ClassesClient({ initialClasses, teachers, sessions, canC
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => { setForm2({ name:cls.name, arm:cls.arm, level:cls.level, sessionId:cls.sessionId, formTeacherId:cls.formTeacherId??"", capacity:String(cls.capacity??40) }); setEdit(cls); setForm(true); }} className="btn-ghost btn-icon btn-sm">
+                    <button aria-label={`Edit ${cls.name} ${cls.arm}`} disabled={pending} onClick={() => { setForm2({ name:cls.name, arm:cls.arm, level:cls.level, sessionId:cls.sessionId, formTeacherId:cls.formTeacher?.id??"", capacity:String(cls.capacity??40) }); setEdit(cls); setForm(true); }} className="btn-ghost btn-icon btn-sm">
                       <Edit2 className="w-3.5 h-3.5"/>
                     </button>
-                    <button onClick={() => setDel(cls)} className="btn-ghost btn-icon btn-sm hover:text-danger">
+                    {canCreateClass && <button aria-label={`Delete ${cls.name} ${cls.arm}`} disabled={pending} onClick={() => setDel(cls)} className="btn-ghost btn-icon btn-sm hover:text-danger">
                       <Trash2 className="w-3.5 h-3.5"/>
-                    </button>
+                    </button>}
                   </div>
                 </div>
               ))}
@@ -124,9 +127,8 @@ export default function ClassesClient({ initialClasses, teachers, sessions, canC
               </div>
               <div className="form-group">
                 <label className="label">Arm *</label>
-                <select value={form.arm} onChange={e => setForm2(f => ({...f, arm:e.target.value}))} className="input">
-                  {ARMS.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
+                <input value={form.arm} onChange={e => setForm2(f => ({...f, arm:e.target.value}))} className="input" list="class-arms"/>
+                <datalist id="class-arms">{ARMS.map(a => <option key={a} value={a}/>)}</datalist>
               </div>
               <div className="form-group">
                 <label className="label">Level *</label>
@@ -140,8 +142,8 @@ export default function ClassesClient({ initialClasses, teachers, sessions, canC
               </div>
               <div className="col-span-2 form-group">
                 <label className="label">Academic Session</label>
-                <select value={form.sessionId} onChange={e => setForm2(f => ({...f, sessionId:e.target.value}))} className="input">
-                  {sessions.map(s => <option key={s.id} value={s.id}>{s.name}{s.isCurrent?" (current)":""}</option>)}
+                <select disabled={!!editItem} value={form.sessionId} onChange={e => setForm2(f => ({...f, sessionId:e.target.value}))} className="input">
+                  {sessions.map(s => <option disabled={!s.isCurrent} key={s.id} value={s.id}>{s.name}{s.isCurrent?" (current)":""}</option>)}
                 </select>
               </div>
               <div className="col-span-2 form-group">
@@ -153,7 +155,7 @@ export default function ClassesClient({ initialClasses, teachers, sessions, canC
               </div>
             </div>
             <div className="flex gap-3 pt-1">
-              <button onClick={handleSave} className="btn-primary flex-1 justify-center">Save</button>
+              <button disabled={pending} onClick={handleSave} className="btn-primary flex-1 justify-center">{pending ? "Saving..." : "Save"}</button>
               <button onClick={() => { setForm(false); setEdit(null); }} className="btn-secondary flex-1 justify-center">Cancel</button>
             </div>
           </div>
@@ -163,7 +165,7 @@ export default function ClassesClient({ initialClasses, teachers, sessions, canC
       {delItem && (
         <ConfirmModal
           title={`Delete ${delItem.name} ${delItem.arm}?`}
-          message="This will remove the class and unassign all linked students. This cannot be undone."
+          message="Only an empty class can be deleted. Classes with pupils, enrollments, assignments, or school records are protected."
           confirmLabel="Delete Class" danger
           onConfirm={handleDelete}
           onCancel={() => setDel(null)}

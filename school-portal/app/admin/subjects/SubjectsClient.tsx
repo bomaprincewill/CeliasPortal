@@ -4,6 +4,7 @@ import { Plus, Trash2, Edit2, Check, Users, GraduationCap, X, UserPlus } from "l
 import { Toast, ConfirmModal } from "@/components/ui";
 import { abbreviateSubjectName } from "@/lib/subjectCode";
 import { assignSubjectTeacher, removeSubjectTeacher } from "@/actions/subjects/manageSubjectAssignment";
+import { saveSubject, retireSubject } from "@/actions/subjects/manageSubjects";
 
 export default function SubjectsClient({ initialSubjects, classes, teachers }: { initialSubjects: any[]; classes: any[]; teachers: any[] }) {
   const [subjects, setSubjects] = useState(initialSubjects);
@@ -70,15 +71,26 @@ export default function SubjectsClient({ initialSubjects, classes, teachers }: {
   const handleSave = () => {
     if (!form.name.trim() || !form.code.trim()) { setToast({ type:"error", message:"Name and code are required." }); return; }
     start(async () => {
-      if (editItem) {
-        setSubjects(prev => prev.map(s => s.id === editItem.id ? { ...s, ...form } : s));
-        setToast({ type:"success", message:"Subject updated." });
-      } else {
-        const newSubject = { id:`sub_${Date.now()}`, ...form, isActive:true, _count:{ assignments:assigns.length, results:0 }, assignments:[] };
-        setSubjects(prev => [...prev, newSubject]);
-        setToast({ type:"success", message:"Subject created." });
-      }
-      setForm(false); setEdit(null); resetForm();
+      try {
+        const saved = await saveSubject({ ...form, id: editItem?.id, assignments: assigns.filter(item => form.classIds.includes(item.classId)) });
+        setSubjects(prev => editItem ? prev.map(s => s.id === saved.id ? saved : s) : [...prev, saved]);
+        if (selected?.id === saved.id) setSelected(saved);
+        setToast({ type: "success", message: editItem ? "Subject updated." : "Subject created." });
+        setForm(false); setEdit(null); resetForm();
+      } catch (error) { setToast({ type: "error", message: error instanceof Error ? error.message : "Unable to save subject." }); }
+    });
+  };
+
+  const handleRetire = () => {
+    if (!delItem || pending) return;
+    start(async () => {
+      try {
+        await retireSubject(delItem.id);
+        setSubjects(prev => prev.map(subject => subject.id === delItem.id ? { ...subject, isActive: false } : subject));
+        if (selected?.id === delItem.id) setSelected(null);
+        setDel(null);
+        setToast({ type: "success", message: "Subject retired. Historical records retained." });
+      } catch (error) { setToast({ type: "error", message: error instanceof Error ? error.message : "Unable to retire subject." }); }
     });
   };
 
@@ -139,7 +151,7 @@ export default function SubjectsClient({ initialSubjects, classes, teachers }: {
                 </td>
                 <td>
                   <div className="flex items-center justify-end gap-1">
-                    <button onClick={e => { e.stopPropagation(); setForm2({ name:s.name, code:s.code, description:s.description??"", classIds:[] }); setEdit(s); setForm(true); }} className="btn-ghost btn-icon btn-sm">
+                    <button disabled={pending} aria-label={`Edit ${s.name}`} onClick={e => { e.stopPropagation(); const current = s.assignments.filter((a:any) => classes.some(c => c.id === a.classId)); setForm2({ name:s.name, code:s.code, description:s.description??"", classIds:[...new Set<string>(current.map((a:any) => a.classId))] }); setAssigns(current.map((a:any) => ({ classId: a.classId, teacherId: a.teacherId }))); setEdit(s); setForm(true); }} className="btn-ghost btn-icon btn-sm">
                       <Edit2 className="w-3.5 h-3.5"/>
                     </button>
                     <button onClick={e => { e.stopPropagation(); setDel(s); }} className="btn-ghost btn-icon btn-sm hover:text-danger">
@@ -213,8 +225,8 @@ export default function SubjectsClient({ initialSubjects, classes, teachers }: {
                 }} className="input" placeholder="e.g. Mathematics"/>
               </div>
               <div className="form-group">
-                <label className="label">Code (automatic)</label>
-                <input value={form.code} readOnly className="input font-mono bg-slate-50" placeholder="MAT" maxLength={5}/>
+                <label className="label">Code *</label>
+                <input value={form.code} onChange={e => setForm2(f => ({ ...f, code: e.target.value.toUpperCase() }))} className="input font-mono" placeholder="MAT" maxLength={20}/>
               </div>
               <div className="col-span-2 form-group">
                 <label className="label">Description</label>
@@ -258,7 +270,7 @@ export default function SubjectsClient({ initialSubjects, classes, teachers }: {
             )}
 
             <div className="flex gap-3 pt-1">
-              <button onClick={handleSave} className="btn-primary flex-1 justify-center">Save</button>
+              <button disabled={pending} onClick={handleSave} className="btn-primary flex-1 justify-center">{pending ? "Saving..." : "Save"}</button>
               <button onClick={() => { setForm(false); setEdit(null); }} className="btn-secondary flex-1 justify-center">Cancel</button>
             </div>
           </div>
@@ -267,10 +279,10 @@ export default function SubjectsClient({ initialSubjects, classes, teachers }: {
 
       {delItem && (
         <ConfirmModal
-          title={`Delete ${delItem.name}?`}
-          message="This will remove the subject and all related assignments. Results already entered will not be deleted."
-          confirmLabel="Delete Subject" danger
-          onConfirm={() => { setSubjects(p=>p.filter(s=>s.id!==delItem.id)); setDel(null); setToast({ type:"success", message:"Subject deleted." }); }}
+          title={`Retire ${delItem.name}?`}
+          message="This subject will become inactive. Existing results and teaching assignments will be retained."
+          confirmLabel="Retire Subject" danger
+          onConfirm={handleRetire}
           onCancel={() => setDel(null)}
         />
       )}

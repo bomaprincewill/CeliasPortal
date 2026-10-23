@@ -29,7 +29,7 @@ export default async function SubjectsPage() {
         } },
       },
     }),
-    prisma.class.findMany({ where: level ? { level: { equals: level, mode: "insensitive" } } : undefined, orderBy:[{ name:"asc" },{ arm:"asc" }], select:{ id:true, name:true, arm:true, _count:{ select:{ students:true } } } }),
+    prisma.class.findMany({ where: { session: { isCurrent: true }, ...(level ? { level: { equals: level, mode: "insensitive" as const } } : {}) }, orderBy:[{ name:"asc" },{ arm:"asc" }], select:{ id:true, name:true, arm:true, _count:{ select:{ students:true } } } }),
     prisma.teacher.findMany({
       where: level ? { assignments: { some: { class: { level: { equals: level, mode: "insensitive" } } } } } : undefined,
       include:{ user:{ select:{ name:true } } }, orderBy:{ user:{ name:"asc" } }

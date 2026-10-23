@@ -12,7 +12,7 @@ export default async function ClassesPage() {
 
   const [classes, teachers, sessions] = await Promise.all([
     prisma.class.findMany({
-      where: level ? { level: { equals: level, mode: "insensitive" } } : undefined,
+      where: { session: { isCurrent: true }, ...(level ? { level: { equals: level, mode: "insensitive" as const } } : {}) },
       orderBy: [{ name:"asc" },{ arm:"asc" }],
       include: {
         formTeacher: { include: { user: { select:{ name:true } } } },
@@ -20,12 +20,10 @@ export default async function ClassesPage() {
       },
     }),
     prisma.teacher.findMany({
-      where: level
-        ? { OR: [
-            { formTeacherOfClass: { level: { equals: level, mode: "insensitive" } } },
-            { assignments: { some: { class: { level: { equals: level, mode: "insensitive" } } } } },
-          ] }
-        : { formClassId: null },
+      where: { user: { isActive: true, role: { in: ["FORM_TEACHER", "SUBJECT_TEACHER"] } }, ...(level ? { OR: [
+        { formClassId: null },
+        { formTeacherOfClass: { level: { equals: level, mode: "insensitive" as const } } },
+      ] } : {}) },
       include: { user: { select:{ name:true } } },
       orderBy: { user:{ name:"asc" } },
     }),

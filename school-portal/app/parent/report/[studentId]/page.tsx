@@ -113,6 +113,7 @@ export default async function ParentReportPage({
 
       <ReportCard
         school={{
+          logoUrl: "/celias-portal-logo.png",
           name:    school?.name ?? "Celias Portal",
           address: school?.address ?? "",
           motto:   school?.motto ?? undefined,

@@ -1,5 +1,5 @@
 import Image from "next/image";
-import schoolLogo from "@/public/celias-school-logo.png";
+import schoolLogo from "@/public/celias-portal-logo.png";
 
 export default function SchoolLogo({ className = "h-12 w-12", priority = false }: { className?: string; priority?: boolean }) {
   return (

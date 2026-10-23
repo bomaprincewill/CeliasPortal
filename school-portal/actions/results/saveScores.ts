@@ -167,6 +167,8 @@ export async function saveDraftScores(input: SaveScoresInput): Promise<SaveScore
           examScore: row.examScore, total,
           maxCA1, maxCA2, maxCA3, maxExam, maxTotal,
           status: "DRAFT",
+          grade: null, gradePoint: null, remark: null, position: null,
+          submittedAt: null, approvedAt: null,
         },
         create: {
           studentId: row.studentId,

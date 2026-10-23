@@ -12,8 +12,8 @@ export const metadata: Metadata = {
   title: "Celias Portal",
   description: "Complete school management: CBT, results, attendance, reports.",
   icons: {
-    icon: "/celias-school-logo.png",
-    apple: "/celias-school-logo.png",
+    icon: "/celias-portal-logo.png",
+    apple: "/celias-portal-logo.png",
   },
 };
 

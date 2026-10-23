@@ -7,6 +7,7 @@ import type { Term } from "@/types";
 import { TERM_LABELS } from "@/types";
 
 interface Props {
+  initialSessionId: string; initialClassId: string; initialTerm: Term; canLock: boolean;
   classes:  {
     id:string;
     name:string;
@@ -49,12 +50,11 @@ function compareClasses(
     || a.arm.localeCompare(b.arm, undefined, { numeric:true });
 }
 
-export default function CompileClient({ classes, sessions }: Props) {
-  const currentSession = sessions.find(s => s.isCurrent) ?? sessions[0];
+export default function CompileClient({ classes, sessions, initialSessionId, initialClassId, initialTerm, canLock }: Props) {
 
-  const [classId,   setClassId]   = useState(classes[0]?.id ?? "");
-  const [sessionId, setSessionId] = useState(currentSession?.id ?? "");
-  const [term,      setTerm]      = useState<Term>("FIRST");
+  const [classId,   setClassId]   = useState(initialClassId);
+  const [sessionId, setSessionId] = useState(initialSessionId);
+  const [term,      setTerm]      = useState<Term>(initialTerm);
   const [lockAfter, setLock]      = useState(false);
   const [showConfirm, setConfirm] = useState(false);
   const [result,    setResult]    = useState<any>(null);
@@ -83,9 +83,11 @@ export default function CompileClient({ classes, sessions }: Props) {
 
   const handleCompile = () => {
     start(async () => {
-      const res = await compileClassResults({ classId, sessionId, term, lockAfter });
-      setResult(res);
-      setToast({ type: res.success ? "success" : "error", message: res.message });
+      try {
+        const res = await compileClassResults({ classId, sessionId, term, lockAfter });
+        setResult(res);
+        setToast({ type: res.success ? "success" : "error", message: res.message });
+      } catch { setToast({ type: "error", message: "Compilation failed. Please try again." }); }
     });
   };
 
@@ -150,9 +152,13 @@ export default function CompileClient({ classes, sessions }: Props) {
           )}
         </div>
 
-        <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-border hover:bg-slate-50">
+        {canLock && <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-border hover:bg-slate-50">
           <button
             type="button"
+            role="switch"
+            aria-checked={lockAfter}
+            aria-label="Lock results after compilation"
+            disabled={isPending}
             onClick={() => setLock(p => !p)}
             className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 ${lockAfter ? "bg-red-500" : "bg-slate-200"}`}>
             <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${lockAfter ? "translate-x-5" : ""}`}/>
@@ -163,7 +169,7 @@ export default function CompileClient({ classes, sessions }: Props) {
             </div>
             <div className="text-xs text-muted">Once locked, no teacher can edit scores. Only Super Admin can unlock.</div>
           </div>
-        </label>
+        </label>}
 
         <div className="flex gap-3 pt-1">
           <button

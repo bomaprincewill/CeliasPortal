@@ -1,9 +1,10 @@
 "use client";
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Lock, CheckCircle2, Clock, AlertTriangle, ChevronDown, BarChart2, Upload } from "lucide-react";
 import { Toast, ConfirmModal } from "@/components/ui";
-import { lockResult } from "@/actions/results/compileResults";
+import { approveResults, lockResultsBatch } from "@/actions/results/reviewResults";
 import { TERM_LABELS } from "@/types";
 import type { Term } from "@/types";
 
@@ -14,20 +15,29 @@ const STATUS_CONFIG = {
   LOCKED:    { label:"Locked",    color:"badge-green",  icon:Lock },
 };
 
-export default function ResultsAdminClient({ classes, subjects, resultGroups, sessionId, sessionName, initialTerm, initialClassId, uploadMode = false }: {
+export default function ResultsAdminClient({ classes, subjects, resultGroups, sessionId, sessionName, initialTerm, initialClassId, sessions, canLock, uploadMode = false }: {
   classes: any[]; subjects: any[]; resultGroups: any[];
   sessionId: string; sessionName: string; initialTerm: string; initialClassId: string; uploadMode?: boolean;
+  sessions: { id: string; name: string }[]; canLock: boolean;
 }) {
-  const [term, setTerm]         = useState<Term>(initialTerm as Term);
-  const [classId, setClassId]   = useState(initialClassId);
+  const term = initialTerm as Term;
+  const classId = initialClassId;
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [subjectId, setSubjectId] = useState("");
   const [toast, setToast]       = useState<any>(null);
   const [lockTarget, setLock]   = useState<any>(null);
   const [isPending, start]      = useTransition();
+  const navigate = (name: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set(name, value);
+    if (name === "sessionId") params.delete("classId");
+    start(() => router.push(`/admin/results?${params.toString()}`));
+  };
 
   // Filter groups by current filters
   const filtered = resultGroups.filter(g =>
-    (!classId || g.classId === classId) && g.term === term
+    (!classId || g.classId === classId) && (!subjectId || g.subjectId === subjectId) && g.term === term
   );
 
   // Build summary table: class × subject → status counts
@@ -41,9 +51,11 @@ export default function ResultsAdminClient({ classes, subjects, resultGroups, se
 
   const handleApprove = (classId: string, subjectId: string) => {
     start(async () => {
-      // In production: call approveResults server action
-      await new Promise(r => setTimeout(r, 600));
-      setToast({ type:"success", message:"Results approved." });
+      try {
+        const result = await approveResults({ classId, subjectId, sessionId, term });
+        setToast({ type: result.success ? "success" : "error", message: result.message });
+        if (result.success) router.refresh();
+      } catch { setToast({ type: "error", message: "Unable to approve results." }); }
     });
   };
 
@@ -52,12 +64,13 @@ export default function ResultsAdminClient({ classes, subjects, resultGroups, se
   };
 
   const confirmLock = () => {
-    if (!lockTarget) return;
+    if (!lockTarget || isPending) return;
     start(async () => {
-      // In production: call lockResult for each result in batch
-      await new Promise(r => setTimeout(r, 800));
-      setLock(null);
-      setToast({ type:"success", message:"Results locked successfully." });
+      try {
+        const result = await lockResultsBatch({ ...lockTarget, sessionId, term });
+        setToast({ type: result.success ? "success" : "error", message: result.message });
+        if (result.success) { setLock(null); router.refresh(); }
+      } catch { setToast({ type: "error", message: "Unable to lock results." }); }
     });
   };
 
@@ -72,27 +85,30 @@ export default function ResultsAdminClient({ classes, subjects, resultGroups, se
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
+        <select aria-label="Academic session" value={sessionId} disabled={isPending} onChange={e => navigate("sessionId", e.target.value)} className="input sm:w-auto">
+          {sessions.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
         <div className="relative w-full sm:w-auto">
-          <select value={term} onChange={e => setTerm(e.target.value as Term)} className="input appearance-none pr-8 sm:min-w-36">
+          <select aria-label="Academic term" value={term} disabled={isPending} onChange={e => navigate("term", e.target.value)} className="input appearance-none pr-8 sm:min-w-36">
             {(Object.entries(TERM_LABELS) as [Term,string][]).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
           </select>
           <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none"/>
         </div>
         <div className="relative w-full sm:w-auto">
-          <select value={classId} onChange={e => setClassId(e.target.value)} className="input appearance-none pr-8 sm:min-w-40">
+          <select aria-label="Class" value={classId} disabled={isPending} onChange={e => navigate("classId", e.target.value)} className="input appearance-none pr-8 sm:min-w-40">
             <option value="">All classes</option>
             {classes.map(c => <option key={c.id} value={c.id}>{c.name} {c.arm}</option>)}
           </select>
           <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none"/>
         </div>
         <div className="relative w-full sm:w-auto">
-          <select value={subjectId} onChange={e => setSubjectId(e.target.value)} className="input appearance-none pr-8 sm:min-w-52">
+          <select aria-label="Subject" value={subjectId} disabled={isPending} onChange={e => setSubjectId(e.target.value)} className="input appearance-none pr-8 sm:min-w-52">
             <option value="">Select a subject to upload</option>
             {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
           <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none"/>
         </div>
-        {classId && subjectId ? (
+        {classId && subjectId && subjects.find(subject => subject.id === subjectId)?.isActive ? (
           <Link
             href={`/teacher/results/${classId}/${subjectId}?term=${term}&sessionId=${sessionId}`}
             className="btn-primary gap-2"
@@ -145,7 +161,7 @@ export default function ResultsAdminClient({ classes, subjects, resultGroups, se
               const sub = subjects.find(s => s.id === row.subjectId);
               const hasSubmitted = (row.counts["SUBMITTED"] ?? 0) > 0;
               const hasApproved  = (row.counts["APPROVED"]  ?? 0) > 0;
-              const allLocked    = (row.counts["LOCKED"]    ?? 0) > 0 && !hasSubmitted && !hasApproved;
+              const allLocked    = (row.counts["LOCKED"]    ?? 0) > 0 && !hasSubmitted && !hasApproved && !(row.counts["DRAFT"] ?? 0);
 
               return (
                 <tr key={`${row.classId}:${row.subjectId}`}>
@@ -174,13 +190,14 @@ export default function ResultsAdminClient({ classes, subjects, resultGroups, se
                   </td>
                   <td>
                     <div className="flex items-center justify-end gap-2">
+                      <Link href={`/admin/compile?classId=${row.classId}&sessionId=${sessionId}&term=${term}`} className="btn-secondary btn-sm">Compile</Link>
                       {hasSubmitted && (
                         <button onClick={() => handleApprove(row.classId, row.subjectId)} disabled={isPending}
                           className="btn-success btn-sm gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5"/> Approve
                         </button>
                       )}
-                      {(hasApproved || allLocked) && !allLocked && (
+                      {canLock && hasApproved && !allLocked && (
                         <button onClick={() => handleLockBatch(row.classId, row.subjectId)} disabled={isPending}
                           className="btn-warn btn-sm gap-1">
                           <Lock className="w-3.5 h-3.5"/> Lock

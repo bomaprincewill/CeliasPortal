@@ -4,8 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import CompileClient from "./CompileClient";
 import { sortClasses } from "@/lib/classSorting";
+import { termSchema } from "@/lib/attendanceValidation";
 
-export default async function CompilePage() {
+export default async function CompilePage({ searchParams }: { searchParams: Promise<{ classId?: string; sessionId?: string; term?: string }> }) {
+  const query = await searchParams;
   const session = await getSession();
   if (!session || !isAdminRole(session.user.role)) redirect("/auth/signin");
   const level = getLeadershipLevel(session.user.role);
@@ -28,5 +30,8 @@ export default async function CompilePage() {
     prisma.academicSession.findMany({ orderBy:{ startDate:"desc" }, select:{ id:true, name:true, isCurrent:true } }),
   ]);
 
-  return <CompileClient classes={sortClasses(classes)} sessions={sessions}/>;
+  const selectedSessionId = sessions.find(item => item.id === query.sessionId)?.id ?? sessions.find(item => item.isCurrent)?.id ?? sessions[0]?.id ?? "";
+  const selectedClassId = classes.find(item => item.id === query.classId && item.sessionId === selectedSessionId)?.id ?? classes.find(item => item.sessionId === selectedSessionId)?.id ?? "";
+  const term = termSchema.safeParse(query.term).success ? termSchema.parse(query.term) : "FIRST";
+  return <CompileClient key={`${selectedSessionId}:${selectedClassId}:${term}`} classes={sortClasses(classes)} sessions={sessions} initialSessionId={selectedSessionId} initialClassId={selectedClassId} initialTerm={term} canLock={session.user.role === "SUPER_ADMIN"}/>;
 }

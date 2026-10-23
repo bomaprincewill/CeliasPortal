@@ -324,7 +324,7 @@ export async function uploadScores(input: UploadScoresInput): Promise<UploadScor
 
       await tx.result.upsert({
         where: { studentId_subjectId_sessionId_term: { studentId: u.studentId, subjectId, sessionId, term } },
-        update: { ca1: u.ca1, ca2: u.ca2, ca3: u.ca3, examScore: u.examScore, total: u.total, status: "DRAFT", maxCA1, maxCA2, maxCA3, maxExam, maxTotal },
+        update: { ca1: u.ca1, ca2: u.ca2, ca3: u.ca3, examScore: u.examScore, total: u.total, status: "DRAFT", grade: null, gradePoint: null, remark: null, position: null, submittedAt: null, approvedAt: null, maxCA1, maxCA2, maxCA3, maxExam, maxTotal },
         create: { studentId: u.studentId, classId, subjectId, sessionId, term, ca1: u.ca1, ca2: u.ca2, ca3: u.ca3, examScore: u.examScore, total: u.total, status: "DRAFT", maxCA1, maxCA2, maxCA3, maxExam, maxTotal },
       });
     }
@@ -390,7 +390,7 @@ export async function uploadBroadSheetScores(input: { classId: string; sessionId
       if (existing?.status === "LOCKED" || lockedSheet) return false;
       await tx.result.upsert({
         where: { studentId_subjectId_sessionId_term: { studentId, subjectId, sessionId: input.sessionId, term: input.term } },
-        update: { classId: input.classId, ca1: score.ca1, ca2: score.ca2, ca3: score.ca3, examScore: score.examScore, total, ...limits, maxTotal, status: "DRAFT" },
+        update: { classId: input.classId, ca1: score.ca1, ca2: score.ca2, ca3: score.ca3, examScore: score.examScore, total, ...limits, maxTotal, status: "DRAFT", grade: null, gradePoint: null, remark: null, position: null, submittedAt: null, approvedAt: null },
         create: { studentId, subjectId, classId: input.classId, sessionId: input.sessionId, term: input.term, ca1: score.ca1, ca2: score.ca2, ca3: score.ca3, examScore: score.examScore, total, ...limits, maxTotal, status: "DRAFT" },
       });
       return true;
